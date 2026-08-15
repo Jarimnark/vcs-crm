@@ -74,6 +74,7 @@ The condition that should make us reopen this.
 | [0042](0042-nextjs-stack-choices.md) | The Next.js stack, and seven guardrails Django gave free | Accepted | 2026-08-11 | Technology |
 | [0043](0043-prototype-environment.md) | ~~Prototype on Vercel + Supabase~~ | ⚠️ Superseded by [0044](0044-local-development-droplet-deployment.md) | 2026-08-11 | Technology / Process |
 | [0044](0044-local-development-droplet-deployment.md) | Develop locally in Docker, deploy to the droplet | Accepted | 2026-08-11 | Technology / Process |
+| [0045](0045-phase-1-scaffold.md) | The Phase 1 scaffold — DAL over RLS, Vitest, Flask, vendored Sarabun | Accepted | 2026-08-15 | Implementation |
 
 **Earlier records (2026-07-29).** Kept in full — the reversals are part of the context.
 

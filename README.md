@@ -4,7 +4,7 @@ Internal web CRM for **VCS**, a distributor of **adhesives** (DELO products) plu
 
 Built for a team of ~5 sales engineers. Phase 1 delivers project tracking, activity logging, document storage, and **quotation generation to PDF** — bilingual Thai/English, multi-page, with cost and margin captured internally and never printed.
 
-**Status:** design complete, pending client answers. No code yet.
+**Status:** Phase 1 scaffold in place — app skeleton, PDF service, Docker, CI ([ADR-0045](docs/decisions/0045-phase-1-scaffold.md)). Quotation builder blocked on client answers B1–B6.
 
 > **Terminology:** what a generic CRM calls an *Opportunity*, VCS calls a **Project**.
 
@@ -30,8 +30,22 @@ Built for a team of ~5 sales engineers. Phase 1 delivers project tracking, activ
 | **Project types** | Consumable · Equipment · Part · Service. Consumables **continue across reorders** with recurring follow-up tasks |
 | **Money** | Three figures, never conflated: `expected_amount` (forecast) · `quoted_value` (derived) · **Orders** (actual revenue, one per PO) |
 | **Quotation** | The centrepiece. Typed lines with autocomplete, no product master in Phase 1. Cost captured per line so margin is reportable |
-| **Stack** | Python + Django, PostgreSQL, **WeasyPrint** for PDF |
+| **Stack** | Next.js 16 + TypeScript, Drizzle, PostgreSQL, **WeasyPrint as a service** for PDF ([ADR-0042](docs/decisions/0042-nextjs-stack-choices.md)) |
 | **Hosting** | One DigitalOcean 1 GB droplet, Singapore. **5,000 THB/year** ceiling |
+
+## Getting started
+
+Nothing needs registering — Node 22 + Docker covers everything ([ADR-0044](docs/decisions/0044-local-development-droplet-deployment.md)):
+
+```bash
+docker compose up -d          # Postgres 16 + the WeasyPrint render service
+cp .env.example .env          # then edit the secrets
+npm install
+npm run db:migrate && npm run db:seed
+ALLOW_SIGNUP=true npm run dev # create the first user via /api/auth/sign-up/email, then unset
+```
+
+Checks: `npm run typecheck && npm run lint && npm test`. With the compose stack up, `PDF_SERVICE_URL=http://localhost:8080 PDF_SERVICE_SECRET=<secret> npm test` also runs the cost-leak sentinel against the real renderer. CI (`.github/workflows/ci.yml`) runs all of it on every push and builds the `.next/standalone` artifact — **`next build` never runs on the droplet**.
 
 ## Two constraints that shaped everything
 

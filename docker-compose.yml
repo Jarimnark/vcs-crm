@@ -1,0 +1,36 @@
+# Local development (ADR-0044): Postgres and the PDF service in Docker,
+# `next dev` runs natively. The pdf-service image is the SAME artifact that
+# deploys — one image, three environments (dev, CI, production).
+#
+#   docker compose up -d
+#   cp .env.example .env   # then edit
+#   npm run db:migrate && npm run db:seed
+#   npm run dev
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: vcs
+      POSTGRES_PASSWORD: vcs
+      POSTGRES_DB: vcs_crm
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vcs -d vcs_crm']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  pdf-service:
+    build: ./pdf-service
+    environment:
+      # Must match PDF_SERVICE_SECRET in .env. The service refuses every
+      # request when the secret is unset — there is no open mode.
+      PDF_SERVICE_SECRET: ${PDF_SERVICE_SECRET:-change-me-shared-secret}
+    ports:
+      - '8080:8080'
+
+volumes:
+  pgdata:

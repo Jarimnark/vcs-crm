@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Page geometry and the two things repeated on every page: the quotation
+     number (string-set) and Page x/y (counters). ADR-0031, tech-stack §2. */
+  @page {
+    size: A4;
+    margin: 18mm 14mm 20mm 14mm;
+    @top-right {
+      content: "No. " string(quo-no);
+      font-family: Sarabun, sans-serif;
+      font-size: 8pt;
+      color: #555;
+    }
+    @bottom-right {
+      content: "Page " counter(page) "/" counter(pages);
+      font-family: Sarabun, sans-serif;
+      font-size: 8pt;
+      color: #555;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: Sarabun, 'Noto Sans Thai', sans-serif;
+    font-size: 9.5pt;
+    color: #111;
+    margin: 0;
+  }
+
+  /* ---- Block 1: header — every page --------------------------------- */
+  .doc-header { width: 100%; border-collapse: collapse; margin-bottom: 4mm; }
+  .doc-header td { vertical-align: top; padding: 0; }
+  .company-name-th { font-size: 12pt; font-weight: bold; }
+  .company-name-en { font-size: 10.5pt; font-weight: bold; }
+  .company-addr { font-size: 8.5pt; color: #333; }
+  .logo { max-height: 18mm; max-width: 40mm; }
+  .title-box {
+    border: 2pt solid #b3261e;
+    color: #b3261e;
+    text-align: center;
+    padding: 2mm 6mm;
+    font-weight: bold;
+    font-size: 12pt;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  /* ---- Block 2: client + attention — page 1 only -------------------- */
+  .parties { width: 100%; border-collapse: collapse; margin-bottom: 3mm; }
+  .parties td {
+    border: 0.5pt solid #888;
+    vertical-align: top;
+    padding: 2mm 3mm;
+    width: 50%;
+    font-size: 9pt;
+  }
+  .parties .label { font-size: 7.5pt; color: #666; }
+
+  /* ---- Block 3: header bar ------------------------------------------ */
+  table.header-bar { width: 100%; border-collapse: collapse; margin-bottom: 3mm; }
+  .header-bar th, .header-bar td {
+    border: 0.5pt solid #888;
+    padding: 1.2mm 2mm;
+    font-size: 8pt;
+    text-align: center;
+  }
+  .header-bar th { background: #f2f2f2; font-weight: bold; }
+
+  /* ---- Block 4: line item table ------------------------------------- */
+  table.lines { width: 100%; border-collapse: collapse; }
+  thead { display: table-header-group; }        /* repeats on every page */
+  tr    { page-break-inside: avoid; }           /* lines don't split */
+  .lines th {
+    border: 0.5pt solid #888;
+    background: #f2f2f2;
+    padding: 1.5mm 2mm;
+    font-size: 8pt;
+  }
+  .lines td {
+    border: 0.5pt solid #888;
+    padding: 1.5mm 2mm;
+    vertical-align: top;
+    font-size: 9pt;
+  }
+  .lines .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .lines .ctr { text-align: center; }
+  .item-code { font-weight: bold; }
+  .components { margin: 1mm 0 0 3mm; font-size: 8.5pt; color: #222; }
+  .line-image { max-width: 45mm; max-height: 40mm; margin-top: 1mm; }
+
+  /* ---- Block 5: terms — travels with totals (last page only) -------- */
+  .terms-and-totals { page-break-inside: avoid; margin-top: 3mm; }
+  .terms-and-totals table.bottom { width: 100%; border-collapse: collapse; }
+  .terms-cell { width: 60%; vertical-align: top; padding-right: 4mm; font-size: 9pt; }
+  .terms-cell .t-label { text-decoration: underline; font-weight: bold; }
+  .totals-cell { width: 40%; vertical-align: top; }
+  table.totals { width: 100%; border-collapse: collapse; }
+  .totals td { border: 0.5pt solid #888; padding: 1.5mm 2mm; font-size: 9pt; }
+  .totals .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .totals .grand { font-weight: bold; background: #f2f2f2; }
+  .thank-you { margin-top: 3mm; font-size: 8.5pt; color: #333; }
+</style>
+</head>
+<body>
+
+  <!-- The quotation number is lifted into the running header of every page,
+       so a detached page stays identifiable (ADR-0031). Must stay in layout:
+       display:none (or the hidden attribute) makes string-set not apply. -->
+  <span style="string-set: quo-no content(); visibility: hidden; font-size: 0; line-height: 0; display: block; height: 0;">{{ quotation.number }}</span>
+
+  <!-- Block 1: header -->
+  <table class="doc-header">
+    <tr>
+      {% if company.logoDataUri %}
+      <td style="width: 44mm"><img class="logo" src="{{ company.logoDataUri }}" alt=""></td>
+      {% endif %}
+      <td>
+        <div class="company-name-th">{{ company.nameTh }}</div>
+        <div class="company-name-en">{{ company.nameEn }}</div>
+        <div class="company-addr">{{ company.addressTh }}</div>
+        <div class="company-addr">{{ company.addressEn }}</div>
+        <div class="company-addr">Tel: {{ company.tel }}{% if company.taxId %} · Tax ID: {{ company.taxId }}{% endif %}</div>
+      </td>
+      <td style="width: 42mm; text-align: right;">
+        <div class="title-box">ใบเสนอราคา<br>QUOTATION</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Block 2: client box + attention box (page 1 only) -->
+  <table class="parties">
+    <tr>
+      <td>
+        <div class="label">บริษัทและที่อยู่ / Company &amp; Address</div>
+        <div><strong>{{ quotation.billToName }}</strong></div>
+        <div style="white-space: pre-line">{{ quotation.billToAddress }}</div>
+        {% if quotation.billToTaxId %}
+        <div>Tax ID: {{ quotation.billToTaxId }}{% if quotation.billToTaxBranch %} ({{ quotation.billToTaxBranch }}){% endif %}</div>
+        {% endif %}
+      </td>
+      <td>
+        <div class="label">ถึง / Attention</div>
+        <div><strong>{{ quotation.attentionName }}</strong></div>
+        {% if quotation.attentionEmail %}<div>Email: {{ quotation.attentionEmail }}</div>{% endif %}
+        {% if quotation.attentionTel %}<div>Tel: {{ quotation.attentionTel }}</div>{% endif %}
+        {% if quotation.ccNames %}<div>cc: {{ quotation.ccNames | join(', ') }}</div>{% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <!-- Block 3: header bar. Long values print "See below" automatically and
+       the full text moves to the terms block — the user never types it. -->
+  {% set MAXBAR = 24 %}
+  <table class="header-bar">
+    <tr>
+      <th>เลขที่<br>No.</th>
+      <th>วันที่<br>Date</th>
+      <th>กำหนดยืนราคา<br>Validity</th>
+      <th>กำหนดส่งของ<br>Delivery Date</th>
+      <th>กำหนดชำระเงิน<br>Payment Term</th>
+      <th>พนักงานขาย<br>Sales Person</th>
+    </tr>
+    <tr>
+      <td>{{ quotation.number }}</td>
+      <td>{{ quotation.dateText }}</td>
+      <td>{% if quotation.validityText and quotation.validityText | length > MAXBAR %}See below{% else %}{{ quotation.validityText or '-' }}{% endif %}</td>
+      <td>{% if quotation.deliveryDateText and quotation.deliveryDateText | length > MAXBAR %}See below{% else %}{{ quotation.deliveryDateText or '-' }}{% endif %}</td>
+      <td>{% if quotation.paymentTermText and quotation.paymentTermText | length > MAXBAR %}See below{% else %}{{ quotation.paymentTermText or '-' }}{% endif %}</td>
+      <td>{{ quotation.salespersonName }}{% if quotation.salespersonPhone %} / {{ quotation.salespersonPhone }}{% endif %}</td>
+    </tr>
+  </table>
+
+  <!-- Block 4: line items -->
+  <table class="lines">
+    <thead>
+      <tr>
+        <th style="width: 8mm">ลำดับที่<br>No.</th>
+        <th>รายการสินค้า<br>Description</th>
+        <th style="width: 22mm">จำนวนสั่งซื้อขั้นต่ำ<br>Min. Order Qty</th>
+        <th style="width: 22mm">ราคาต่อหน่วย<br>Unit Price</th>
+        <th style="width: 18mm">ส่วนลด<br>Discount</th>
+        <th style="width: 24mm">จำนวนเงิน<br>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td class="ctr">{{ line.sequence }}</td>
+        <td>
+          <span class="item-code">{{ line.itemCode }}</span> {{ line.itemName }}
+          {% if line.description %}<div>{{ line.description }}</div>{% endif %}
+          {% if line.components %}
+          <div class="components">
+            {% for c in line.components %}
+            {{ c.quantityText }} x {{ c.code }} {{ c.name }}<br>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if line.imageDataUri %}<img class="line-image" src="{{ line.imageDataUri }}" alt="">{% endif %}
+        </td>
+        <td class="ctr">{{ line.quantityText }} {{ line.unit }}</td>
+        <td class="num">{{ line.unitPriceText }}</td>
+        <td class="ctr">{{ line.discountText }}</td>
+        <td class="num">{{ line.amountText }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Blocks 5+6: terms, thank-you and totals travel together; totals must
+       never appear without at least the terms block above them (ADR-0031). -->
+  <div class="terms-and-totals">
+    <table class="bottom">
+      <tr>
+        <td class="terms-cell">
+          <div><span class="t-label">Currency</span> : {{ quotation.currencyLabel }}</div>
+          {% if quotation.validityText %}<div><span class="t-label">Validity</span> : {{ quotation.validityText }}</div>{% endif %}
+          {% if quotation.deliveryDateText %}<div><span class="t-label">Delivery</span> : {{ quotation.deliveryDateText }}</div>{% endif %}
+          {% if quotation.leadTimeText %}<div><span class="t-label">Lead time</span> : {{ quotation.leadTimeText }}</div>{% endif %}
+          {% if quotation.incoterm %}<div><span class="t-label">Incoterm</span> : {{ quotation.incoterm }}</div>{% endif %}
+          {% if quotation.paymentTermText %}<div><span class="t-label">Payment Term</span> : {{ quotation.paymentTermText }}</div>{% endif %}
+          {% if quotation.countryOfOrigin %}<div><span class="t-label">Country of Origin</span> : {{ quotation.countryOfOrigin }}</div>{% endif %}
+          {% if quotation.regulatoryNote %}<div style="margin-top: 2mm">{{ quotation.regulatoryNote }}</div>{% endif %}
+          <div class="thank-you">
+            {% if company.thankYouTextTh %}{{ company.thankYouTextTh }}<br>{% endif %}
+            {% if company.thankYouTextEn %}{{ company.thankYouTextEn }}{% endif %}
+          </div>
+        </td>
+        <td class="totals-cell">
+          <table class="totals">
+            <tr>
+              <td>รวมเงิน / Total</td>
+              <td class="num">{{ quotation.totalText }}</td>
+            </tr>
+            {% if quotation.vatApplied %}
+            <tr>
+              <td>ภาษีมูลค่าเพิ่ม / VAT 7%</td>
+              <td class="num">{{ quotation.vatText }}</td>
+            </tr>
+            {% endif %}
+            <tr class="grand">
+              <td class="grand">จำนวนเงินทั้งสิ้น / Grand Total</td>
+              <td class="num grand">{{ quotation.grandTotalText }}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+</body>
+</html>

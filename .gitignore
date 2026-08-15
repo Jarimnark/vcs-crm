@@ -23,3 +23,18 @@ yarn-error.log*
 .vscode/
 .idea/
 *.swp
+
+# Next.js
+next-env.d.ts
+*.tsbuildinfo
+
+# Uploaded files (local dev)
+media/
+
+# Python (pdf-service)
+__pycache__/
+*.pyc
+.venv/
+
+# Docker volumes
+pgdata/

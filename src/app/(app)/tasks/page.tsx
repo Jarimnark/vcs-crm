@@ -1,0 +1,74 @@
+// Flow A — My Tasks, the daily landing page: everything assigned to the
+// current user regardless of what it is attached to (A5).
+import Link from 'next/link'
+import { requireSessionOrRedirect } from '@/lib/session'
+import { listMyOpenTasks } from '@/lib/data/tasks'
+import { completeTaskAction, createTaskAction } from './actions'
+
+export const dynamic = 'force-dynamic'
+
+export default async function TasksPage() {
+  const session = await requireSessionOrRedirect()
+  const tasks = await listMyOpenTasks(session)
+
+  return (
+    <>
+      <h1>My Tasks</h1>
+      <table className="list">
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Related to</th>
+            <th>Due</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.length === 0 && (
+            <tr>
+              <td colSpan={4} className="muted">
+                Nothing open. Add a task below.
+              </td>
+            </tr>
+          )}
+          {tasks.map((t) => (
+            <tr key={t.id}>
+              <td>
+                {t.title} {t.auto && <span className="badge">auto</span>}
+              </td>
+              <td>
+                {t.projectId ? (
+                  <Link href={`/projects/${t.projectId}`}>{t.projectName}</Link>
+                ) : (
+                  (t.accountName ?? <span className="muted">—</span>)
+                )}
+              </td>
+              <td>{t.dueDate ?? ''}</td>
+              <td>
+                <form action={completeTaskAction}>
+                  <input type="hidden" name="taskId" value={t.id} />
+                  <button className="quiet">Done</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h2>New task</h2>
+      <div className="card">
+        <form className="stack" action={createTaskAction}>
+          <label>
+            Title
+            <input name="title" required maxLength={300} />
+          </label>
+          <label>
+            Due date
+            <input name="dueDate" type="date" />
+          </label>
+          <button>Add task</button>
+        </form>
+      </div>
+    </>
+  )
+}

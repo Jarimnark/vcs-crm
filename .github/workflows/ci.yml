@@ -1,0 +1,95 @@
+# CI build pipeline (ADR-0042). Two hard rules it exists to enforce:
+#
+# 1. `next build` NEVER runs on the droplet — it does not fit in 1 GB. CI
+#    builds the `.next/standalone` output and keeps it as an artifact, so the
+#    last known-good build stays recoverable (docs/03-tech-stack.md §10).
+# 2. The cost-leak sentinel test runs against the REAL WeasyPrint container
+#    on every push — the whitelist must hold across the network boundary.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [release, main]
+
+jobs:
+  app:
+    name: Typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+      - name: Build standalone output
+        run: npm run build
+        env:
+          # Build-time placeholders only. The real values are set on the
+          # droplet; the encryption key must stay stable across deploys (G6).
+          NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY || 'PLACEHOLDER0000000000000000000000000000000000=' }}
+          BETTER_AUTH_SECRET: ci-build-placeholder-secret
+          BETTER_AUTH_URL: http://localhost:3000
+
+      - name: Assemble deployable artifact
+        run: |
+          mkdir -p dist
+          cp -r .next/standalone dist/app
+          mkdir -p dist/app/.next/static dist/app/public
+          cp -r .next/static/. dist/app/.next/static/
+          [ -d public ] && cp -r public/. dist/app/public/ || true
+          cp -r src/db/migrations dist/migrations
+
+      - name: Upload standalone build
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-${{ github.sha }}
+          path: dist
+          retention-days: 30
+
+  pdf-service:
+    name: PDF service — build, Thai render, cost-leak sentinel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t vcs-pdf-service ./pdf-service
+
+      - name: Run service
+        run: |
+          docker run -d --name pdf -p 8080:8080 \
+            -e PDF_SERVICE_SECRET=ci-test-secret vcs-pdf-service
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/healthz && break
+            sleep 1
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install pdftotext
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils
+
+      - name: Sentinel integration test (testing priority 1)
+        run: npm test -- tests/pdf-render.test.ts
+        env:
+          PDF_SERVICE_URL: http://127.0.0.1:8080
+          PDF_SERVICE_SECRET: ci-test-secret
+
+      - name: Service logs on failure
+        if: failure()
+        run: docker logs pdf

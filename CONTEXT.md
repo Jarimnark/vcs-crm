@@ -4,7 +4,7 @@
 |---|---|
 | **Purpose** | Running state of the implementation: what exists, how it diverges from the spec, what is blocked, what happens next. Updated every working session. |
 | **Updated** | 2026-08-22 (evening — answers received) |
-| **Status** | ✅ **Plan approved (K1–K8) and B-questions answered — [ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md). Phases A → B → C cleared to start.** Outstanding from client: **B1** (multi-line sample), **B5** (current counter value), **T1** (T&C wording), **K4** (locate 02/04 docs). |
+| **Status** | ✅ **Plan approved (K1–K8) and B-questions answered — [ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md), [ADR-0047](docs/decisions/0047-quotation-counter-forward-reseed.md). Phases A → B → C cleared to start; Phase A implements `docs/02-data-model.md` directly.** Outstanding from client: **B1** (multi-line sample), **B5** (current counter value), **T1** (T&C wording). |
 | **Spec sources** | `user-story/` (client, authoritative) → `docs/00,01,03,05` → ADRs |
 
 ---
@@ -13,14 +13,16 @@
 
 Three causes, in order of impact:
 
-1. **Two design documents are missing from the repository.** `docs/02-data-model.md` (the table-by-table schema, "19 tables, every constraint, every index") and `docs/04-infrastructure.md` are referenced everywhere but are not in the repo. The implemented Drizzle schema was **reconstructed from ADR summaries**, not built from the real table design. The closest surviving source — `user-story/phase1-design-handoff.md` Part B (the full entity design) — was only skimmed during scaffolding. Most schema gaps below trace to this.
-   → **Action needed from KK: do you still have 02/04 locally? Restoring them beats re-deriving.** Until then, this file treats handoff Part B + user-story §3 as the canonical schema.
+1. **~~Two design documents are missing from the repository~~ — CORRECTION 2026-08-22: they were there all along.** `docs/02-data-model.md` and `docs/04-infrastructure.md` have been in the initial commit the whole time. The session-start directory listing was truncated at 50 entries (the docs tree has ~56 files) and both fell off the end — the assistant wrongly concluded they were missing and **reconstructed the schema from ADR summaries instead of reading the real table design**. A tooling/verification mistake, not a repo problem. K4 is moot.
+   → **`docs/02-data-model.md` is canonical. Phase A implements it directly** (19 tables, constraints, indexes, conventions), as amended by ADR-0046/0047.
 2. **The scaffold was architecture-first, not feature-first.** The first push prioritized the guardrails (PDF whitelist + sentinel test, money discipline, DAL, CI, Docker) because those are the expensive-to-retrofit parts. Entity completeness and screens were deliberately thin — but that boundary was not written down clearly, so it reads as "huge difference" rather than "planned phase 1 of the build".
 3. **A few outright misreads** (not simplifications) — listed in §2 marked ❌. These are bugs against the spec and need migration fixes.
 
 ---
 
 ## 2. Schema gap analysis — spec vs `src/db/schema.ts`
+
+> **2026-08-22:** the canonical schema is **`docs/02-data-model.md`** (present in the repo all along — see §1). The tables below were compiled against handoff Part B and remain accurate as a gap summary; 02 confirms them and adds the conventions/deltas now listed under Phase A in §5.
 
 Severity: ❌ wrong (contradicts spec) · ⚠️ missing (spec field absent) · ✅ ok / deliberate.
 
@@ -141,7 +143,7 @@ Severity: ❌ wrong (contradicts spec) · ⚠️ missing (spec field absent) · 
 | **B2** | ✅ **Page 2 exists: standard T&C move there** | Template gains a conditional final T&C page; wording is company-level → **new item T1: get the T&C text from VCS** |
 | **B3** | ✅ **Enter either amount or %; system derives the other** | Builder shows both, `discount_type` records which was entered; printed column shows amount, `-` when none |
 | **B4** | ✅ Suffix `-R2` | Already implemented |
-| **B5** | ⏳ **still needed: the current counter number.** KK asked why not year-based — see ADR-0046: the client's own samples (QUO69041/69054) are one continuous no-reset sequence customers recognise; the seed is just "the last number VCS used". Placeholder 69000 stays until the real value arrives — **blocks launch, not build** |
+| **B5** | ⏳ **still needed: the current counter number.** Why not year-based: the samples are one continuous no-reset sequence (69xxx carries no year meaning) — the seed is just "the last number VCS used". **KK's follow-up "what if they want 700XX next year?" → answered in [ADR-0047](docs/decisions/0047-quotation-counter-forward-reseed.md): the admin sets the next number forward (e.g. to 70000) whenever VCS wants — forward-only, gaps safe, never backwards.** Placeholder stays until the real value arrives — blocks launch, not build |
 | **B6** | ✅ Terms per quotation (header) | Confirmed; per-quotation terms in the terms block, standard T&C on the final page |
 | **B7** | ✅ Status set **by hand** | No auto-Won; UI keeps the two controls fully independent |
 | **B8** | ✅ **No progress labels** | UI shows plain percentages; drop the label ladder |
@@ -155,7 +157,7 @@ Severity: ❌ wrong (contradicts spec) · ⚠️ missing (spec field absent) · 
 | **K1** | Account → **multi-select types** with spec values | ✅ approved |
 | **K2** | Full spec-field alignment (Project / Meeting+Attendees / Task status / Document / Person / Order / Expense) | ✅ approved |
 | **K3** | Reorder loop per spec; drop hard-coded 90-day logic | ✅ approved |
-| **K4** | Locate `docs/02-data-model.md` + `04-infrastructure.md` | ⏳ **KK checking.** "Restore" means: those two files are referenced by the README/docs but were never committed to this repo — if copies exist wherever the docs were written, add them back. If none exist, 02 gets rewritten from the confirmed schema and becomes canonical |
+| **K4** | Locate `docs/02-data-model.md` + `04-infrastructure.md` | ✅ **Resolved — they were in the repo all along** (initial commit). The "missing files" claim was the assistant's error: a truncated directory listing at session start. `02-data-model.md` is now the canonical schema source for Phase A |
 | **K5** | Roles → `sales_engineer / sales_manager / ceo / finance` | ✅ approved |
 | **K6** | Build the quotation builder now | ✅ approved — B3 answered, so discount UI is fully specified; numbering runs on the placeholder seed until B5's value arrives |
 | **K7** | F1–F8 defaults | ✅ approved |
@@ -168,7 +170,13 @@ Schema alignment (after K1–K5 sign-off) · My Tasks dashboard · orders UI · 
 
 ## 5. Proposed plan (no work starts until KK approves)
 
-**Phase A — Schema alignment** *(approved)*: one migration implementing every §2 fix, **plus the ADR-0046 deltas**: drop `lost_reason` picklist kind, add company T&C field, keep `discount_type`/`discount_value` (dual-entry UI derives the counterpart). Update DAL/DTOs/seeds/tests. No screen work. ~Small-medium.
+**Phase A — Schema alignment** *(approved)*: implement **`docs/02-data-model.md` directly** (it was present all along — see §1), as amended by ADR-0046/0047. Beyond the §2 gap tables, the real data model adds these deltas the reconstruction missed:
+- **Conventions**: `VARCHAR` + TS union instead of Postgres enums (scaffold used `pgEnum` — migrate off); `created_by`/`updated_by` audit columns on every editable table; picklist rows are `code` + `label` (scaffold has `value` only); CHECK constraints in Postgres (lost-requires-reason, part-only parent, consumable-only interval, one-primary-person partial index).
+- **Counter moves onto `company`** (`quotation_number_prefix` + `quotation_number_next`), allocation **at issue not draft-creation** (scaffold allocates at creation from a separate table), plus ADR-0047's forward-only "set next number" admin control.
+- **`purchase_order` as the physical table name** (`order` is reserved; 02 §7 recommends renaming — scaffold hand-writes `"order"` in SQL today).
+- **Rounding once at document total, not per line** (02 §6.2) — scaffold's `lineAmount` rounds per line; fix totals.ts + tests.
+- ADR-0046 amendments to 02: `lost_reason_id` FK → **free text** (no picklist kind); company gains a **T&C text field** (B2/T1); progress labels dropped.
+Update DAL/DTOs/seeds/tests accordingly. ~Medium.
 
 **Phase B — Spec-correct core flows** *(needs nothing from client)*:
 1. Reorder loop per spec (K3) — interval on project, Won prompt, task-chain, pause; orders UI (log PO, void) resetting the clock.
@@ -193,3 +201,4 @@ Suggested order: **A → B1 → C (mechanics) → B2–B5 → C (finish on clien
 | 2026-08-22 | Contact creation + basic meetings module added. KK moved local Postgres to port 8888, seed reads `local.env` |
 | 2026-08-22 | **This review.** Full re-read of user-story + design docs; gap analysis §2–3; plan §5. Waiting on K1–K8 |
 | 2026-08-22 | **Answers received.** B2–B4, B6–B11 answered; K1–K3, K5–K8 approved → [ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md). Docs updated (00, 05, README, this file). Still open: B1, B5 value, T1 T&C wording, K4 file check. Next session starts Phase A |
+| 2026-08-22 | **Correction: 02-data-model.md and 04-infrastructure.md were in the repo all along** — the "missing files" claim came from a truncated session-start listing (K4 resolved). 02 read in full and made canonical for Phase A; new deltas folded into the Phase A plan (no-pgEnum convention, counter on company + allocation at issue, `purchase_order` naming, document-level rounding, audit columns). KK's 700XX question → [ADR-0047](docs/decisions/0047-quotation-counter-forward-reseed.md): forward-only manual re-seed |

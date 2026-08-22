@@ -15,6 +15,13 @@
       "when": 1787420335812,
       "tag": "0001_account-phone",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787421874708,
+      "tag": "0002_project-won-amount",
+      "breakpoints": true
     }
   ]
 }

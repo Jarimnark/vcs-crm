@@ -1,0 +1,1 @@
+ALTER TABLE "project" ADD COLUMN "won_amount" numeric(15, 2);

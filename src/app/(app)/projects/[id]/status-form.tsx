@@ -41,16 +41,8 @@ export function StatusForm({
       {status === 'won' && currentStatus !== 'won' && (
         <>
           <label>
-            Real amount ({'THB'}) — recorded as the first order
+            Real amount (THB)
             <input name="wonAmount" required inputMode="decimal" pattern="\d+(\.\d{1,2})?" />
-          </label>
-          <label>
-            PO number (optional — may follow later)
-            <input name="wonPoNumber" maxLength={100} />
-          </label>
-          <label>
-            PO / order date (defaults to today)
-            <input name="wonPoDate" type="date" />
           </label>
           {projectType === 'consumable' && (
             <label>

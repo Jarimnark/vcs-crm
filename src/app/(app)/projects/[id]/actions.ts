@@ -20,31 +20,25 @@ export async function setStatusAction(formData: FormData): Promise<void> {
   const projectId = z.coerce.number().int().positive().parse(formData.get('projectId'))
   const status = z.enum(['open', 'won', 'lost']).parse(formData.get('status'))
 
+  // Won requires the real amount — a simple field on the project (review
+  // round 1, KK's call). Orders still track individual POs separately.
+  const wonAmount =
+    status === 'won'
+      ? z
+          .string()
+          .trim()
+          .regex(/^\d+(\.\d{1,2})?$/, 'Won needs the real amount')
+          .parse(formData.get('wonAmount'))
+      : null
+
   await setStatus(session, projectId, status, {
     lostReason: (formData.get('lostReason') as string | null) || null,
     lostNote: (formData.get('lostNote') as string | null) || null,
     competitor: (formData.get('competitor') as string | null) || null,
+    wonAmount,
   })
 
   if (status === 'won') {
-    // Won requires the real amount (review round 1) — recorded as the first
-    // Order, the actual-revenue figure (ADR-0030). PO number may follow later.
-    const wonAmount = z
-      .string()
-      .trim()
-      .regex(/^\d+(\.\d{1,2})?$/, 'Won needs the real amount')
-      .parse(formData.get('wonAmount'))
-    const poNumber = ((formData.get('wonPoNumber') as string | null) || '').trim()
-    const poDate =
-      ((formData.get('wonPoDate') as string | null) || '').trim() ||
-      new Date().toISOString().slice(0, 10)
-    await createOrder(session, {
-      projectId,
-      poNumber: poNumber || '(pending)',
-      poDate,
-      amount: wonAmount,
-    })
-
     // Flow E: the Won moment is when the engineer knows the ordering rhythm.
     const interval = ((formData.get('wonIntervalDays') as string | null) || '').trim()
     if (interval) {

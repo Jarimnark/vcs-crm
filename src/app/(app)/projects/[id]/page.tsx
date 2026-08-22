@@ -50,7 +50,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             </span>
           )}
         </p>
-        {/* Three money figures, never conflated (ADR-0030) */}
+        {/* Money figures, never conflated (ADR-0030) */}
         <p>
           Expected:{' '}
           {project.expectedAmount != null
@@ -59,7 +59,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           · Quoted:{' '}
           {project.quotedValue != null
             ? `${formatMoney(project.quotedValue)} ${project.currency}`
-            : '—'}{' '}
+            : '—'}
+          {project.wonAmount != null &&
+            ` · Won: ${formatMoney(project.wonAmount)} ${project.currency}`}{' '}
           · Ordered: {formatMoney(actualRevenue)} {project.currency}
         </p>
       </div>

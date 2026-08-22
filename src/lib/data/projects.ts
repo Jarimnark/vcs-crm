@@ -59,6 +59,7 @@ export interface ProjectDto {
   lostReason: string | null
   competitor: string | null
   expectedAmount: string | null
+  wonAmount: string | null
   quotedValue: string | null
   currency: string
   expectedCloseDate: string | null
@@ -79,6 +80,7 @@ const projectSelection = {
   lostReason: projects.lostReason,
   competitor: projects.competitor,
   expectedAmount: projects.expectedAmount,
+  wonAmount: projects.wonAmount,
   quotedValue: projects.quotedValue,
   currency: projects.currency,
   expectedCloseDate: projects.expectedCloseDate,
@@ -242,10 +244,18 @@ export async function setStatus(
   session: AppSession,
   projectId: number,
   status: ProjectStatus,
-  opts?: { lostReason?: string | null; lostNote?: string | null; competitor?: string | null },
+  opts?: {
+    lostReason?: string | null
+    lostNote?: string | null
+    competitor?: string | null
+    wonAmount?: string | null
+  },
 ): Promise<void> {
   if (status === 'lost' && !opts?.lostReason?.trim()) {
     throw new Error('A lost project needs a lost reason')
+  }
+  if (status === 'won' && !opts?.wonAmount) {
+    throw new Error('Won needs the real amount')
   }
   await db.transaction(async (tx) => {
     const current = await tx
@@ -260,6 +270,7 @@ export async function setStatus(
       .update(projects)
       .set({
         status,
+        wonAmount: status === 'won' ? (opts?.wonAmount ?? null) : null,
         lostReason: status === 'lost' ? (opts?.lostReason?.trim() ?? null) : null,
         lostNote: status === 'lost' ? (opts?.lostNote ?? null) : null,
         competitor: status === 'lost' ? (opts?.competitor ?? null) : null,

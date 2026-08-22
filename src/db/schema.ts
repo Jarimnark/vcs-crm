@@ -269,6 +269,10 @@ export const projects = pgTable(
     lostNote: text('lost_note'),
     competitor: varchar('competitor', { length: 255 }), // captured at Lost
     expectedAmount: numeric('expected_amount', { precision: 15, scale: 2 }), // forecast only
+    // The real amount entered when the project is set Won (review round 1 —
+    // KK chose a simple field over auto-creating an Order). Orders still
+    // track individual POs and drive the reorder clock.
+    wonAmount: numeric('won_amount', { precision: 15, scale: 2 }),
     // Derived — latest issued quotation grand total. Maintained by the
     // quotation issue/revise transaction (02 §5.1), recomputable.
     quotedValue: numeric('quoted_value', { precision: 15, scale: 2 }),

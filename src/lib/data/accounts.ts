@@ -62,6 +62,28 @@ export async function listPeople(accountId: number): Promise<PersonDto[]> {
   }))
 }
 
+export async function createPerson(input: {
+  accountId: number
+  name: string
+  position?: string | null
+  email?: string | null
+  tel?: string | null
+  mobile?: string | null
+}): Promise<number> {
+  const rows = await db
+    .insert(people)
+    .values({
+      accountId: input.accountId,
+      name: input.name,
+      position: input.position ?? null,
+      email: input.email ?? null,
+      tel: input.tel ?? null,
+      mobile: input.mobile ?? null,
+    })
+    .returning({ id: people.id })
+  return rows[0].id
+}
+
 export async function createAccount(input: {
   name: string
   type?: AccountDto['type']

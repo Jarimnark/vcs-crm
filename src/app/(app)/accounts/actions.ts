@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireSession } from '@/lib/session'
-import { createAccount } from '@/lib/data/accounts'
+import { createAccount, createPerson } from '@/lib/data/accounts'
 import { createProject } from '@/lib/data/projects'
 
 const NewAccountSchema = z.object({
@@ -25,6 +25,29 @@ export async function createAccountAction(formData: FormData): Promise<void> {
   })
   await createAccount({ ...parsed, createdById: session.userId })
   revalidatePath('/accounts')
+}
+
+const NewPersonSchema = z.object({
+  accountId: z.coerce.number().int().positive(),
+  name: z.string().trim().min(1).max(200),
+  position: z.string().trim().max(200).nullable(),
+  email: z.string().trim().email().max(320).nullable(),
+  tel: z.string().trim().max(50).nullable(),
+  mobile: z.string().trim().max(50).nullable(),
+})
+
+export async function createPersonAction(formData: FormData): Promise<void> {
+  await requireSession()
+  const parsed = NewPersonSchema.parse({
+    accountId: formData.get('accountId'),
+    name: formData.get('name'),
+    position: (formData.get('position') as string | null) || null,
+    email: (formData.get('email') as string | null) || null,
+    tel: (formData.get('tel') as string | null) || null,
+    mobile: (formData.get('mobile') as string | null) || null,
+  })
+  await createPerson(parsed)
+  revalidatePath(`/accounts/${parsed.accountId}`)
 }
 
 const NewProjectSchema = z.object({

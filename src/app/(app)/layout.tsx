@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/tasks">My Tasks</Link>
           <Link href="/projects">Projects</Link>
           <Link href="/accounts">Accounts</Link>
+          <Link href="/meetings">Meetings</Link>
           <Link href="/expenses">Expenses</Link>
           <Link href="/reports">Reports</Link>
           <Link href="/admin">Admin</Link>

@@ -1,5 +1,5 @@
 {
-  "id": "b537735d-ab10-4b8e-adcb-c38d6e94f1c3",
+  "id": "7de526a2-0bc4-4621-a06c-3cc8ffe3f394",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -10,34 +10,34 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "account_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "name": {
           "name": "name",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
-        "type": {
-          "name": "type",
-          "type": "account_type",
-          "typeSchema": "public",
+        "types": {
+          "name": "types",
+          "type": "text[]",
           "primaryKey": false,
           "notNull": true,
-          "default": "'customer'"
+          "default": "ARRAY['client']::text[]"
+        },
+        "tax_id": {
+          "name": "tax_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tax_branch": {
+          "name": "tax_branch",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
         },
         "address": {
           "name": "address",
@@ -45,30 +45,43 @@
           "primaryKey": false,
           "notNull": false
         },
-        "tax_id": {
-          "name": "tax_id",
-          "type": "text",
+        "industry": {
+          "name": "industry",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": false
         },
-        "tax_branch": {
-          "name": "tax_branch",
-          "type": "text",
+        "country_id": {
+          "name": "country_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
         "default_currency": {
           "name": "default_currency",
-          "type": "text",
+          "type": "char(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "'THB'"
         },
-        "lead_source": {
-          "name": "lead_source",
+        "default_payment_term": {
+          "name": "default_payment_term",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "owner_user_id": {
+          "name": "owner_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
         },
         "created_by_id": {
           "name": "created_by_id",
@@ -76,23 +89,92 @@
           "primaryKey": false,
           "notNull": false
         },
+        "updated_by_id": {
+          "name": "updated_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "account_types_gin": {
+          "name": "account_types_gin",
+          "columns": [
+            {
+              "expression": "types",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        },
+        "account_status_owner_idx": {
+          "name": "account_status_owner_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "owner_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
+        "account_country_id_picklist_id_fk": {
+          "name": "account_country_id_picklist_id_fk",
+          "tableFrom": "account",
+          "tableTo": "picklist",
+          "columnsFrom": [
+            "country_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "account_owner_user_id_user_id_fk": {
+          "name": "account_owner_user_id_user_id_fk",
+          "tableFrom": "account",
+          "tableTo": "user",
+          "columnsFrom": [
+            "owner_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "account_created_by_id_user_id_fk": {
           "name": "account_created_by_id_user_id_fk",
           "tableFrom": "account",
@@ -103,7 +185,20 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "account_updated_by_id_user_id_fk": {
+          "name": "account_updated_by_id_user_id_fk",
+          "tableFrom": "account",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -161,13 +256,13 @@
         },
         "access_token_expires_at": {
           "name": "access_token_expires_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "refresh_token_expires_at": {
           "name": "refresh_token_expires_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -185,14 +280,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -226,20 +321,19 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "default": 1
+          "notNull": true
         },
         "name_th": {
           "name": "name_th",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
         "name_en": {
           "name": "name_en",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
@@ -255,35 +349,75 @@
           "primaryKey": false,
           "notNull": true
         },
-        "tel": {
-          "name": "tel",
-          "type": "text",
+        "phone": {
+          "name": "phone",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true
         },
         "tax_id": {
           "name": "tax_id",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "logo": {
+          "name": "logo",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quotation_footer_text_th": {
+          "name": "quotation_footer_text_th",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "logo_path": {
-          "name": "logo_path",
+        "quotation_footer_text_en": {
+          "name": "quotation_footer_text_en",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "thank_you_text_th": {
-          "name": "thank_you_text_th",
+        "quotation_terms_text": {
+          "name": "quotation_terms_text",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "thank_you_text_en": {
-          "name": "thank_you_text_en",
-          "type": "text",
+        "default_vat_rate": {
+          "name": "default_vat_rate",
+          "type": "numeric(5, 2)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'7.00'"
+        },
+        "quotation_number_prefix": {
+          "name": "quotation_number_prefix",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'QUO'"
+        },
+        "quotation_number_next": {
+          "name": "quotation_number_next",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_format": {
+          "name": "date_format",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'DD/MM/YYYY'"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -291,7 +425,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "company_single_row": {
+          "name": "company_single_row",
+          "value": "\"company\".\"id\" = 1"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.document": {
@@ -300,89 +439,134 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "document_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "project_id": {
           "name": "project_id",
-          "type": "integer",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "doc_type_id": {
+          "name": "doc_type_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "file": {
+          "name": "file",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_filename": {
+          "name": "original_filename",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
         },
-        "account_id": {
-          "name": "account_id",
-          "type": "integer",
+        "version": {
+          "name": "version",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "issue_date": {
+          "name": "issue_date",
+          "type": "date",
           "primaryKey": false,
           "notNull": false
         },
-        "type": {
-          "name": "type",
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'sent'"
+        },
+        "is_generated": {
+          "name": "is_generated",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "source_quotation_id": {
+          "name": "source_quotation_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_id": {
+          "name": "created_by_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "title": {
-          "name": "title",
+        "updated_by_id": {
+          "name": "updated_by_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
-        },
-        "file_path": {
-          "name": "file_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "uploaded_by_id": {
-          "name": "uploaded_by_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "document_project_idx": {
-          "name": "document_project_idx",
+        "document_project_type_idx": {
+          "name": "document_project_type_idx",
           "columns": [
             {
               "expression": "project_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
+            },
+            {
+              "expression": "doc_type_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "issue_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "document_source_quotation_idx": {
+          "name": "document_source_quotation_idx",
+          "columns": [
+            {
+              "expression": "source_quotation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"document\".\"source_quotation_id\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -399,15 +583,15 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "document_account_id_account_id_fk": {
-          "name": "document_account_id_account_id_fk",
+        "document_doc_type_id_picklist_id_fk": {
+          "name": "document_doc_type_id_picklist_id_fk",
           "tableFrom": "document",
-          "tableTo": "account",
+          "tableTo": "picklist",
           "columnsFrom": [
-            "account_id"
+            "doc_type_id"
           ],
           "columnsTo": [
             "id"
@@ -415,24 +599,55 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "document_uploaded_by_id_user_id_fk": {
-          "name": "document_uploaded_by_id_user_id_fk",
+        "document_source_quotation_id_quotation_id_fk": {
+          "name": "document_source_quotation_id_quotation_id_fk",
+          "tableFrom": "document",
+          "tableTo": "quotation",
+          "columnsFrom": [
+            "source_quotation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "document_created_by_id_user_id_fk": {
+          "name": "document_created_by_id_user_id_fk",
           "tableFrom": "document",
           "tableTo": "user",
           "columnsFrom": [
-            "uploaded_by_id"
+            "created_by_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "document_updated_by_id_user_id_fk": {
+          "name": "document_updated_by_id_user_id_fk",
+          "tableFrom": "document",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "document_generated_has_source": {
+          "name": "document_generated_has_source",
+          "value": "NOT \"document\".\"is_generated\" OR \"document\".\"source_quotation_id\" IS NOT NULL"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.expense": {
@@ -441,36 +656,19 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "expense_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
-        "project_id": {
-          "name": "project_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "incurred_by_user_id": {
-          "name": "incurred_by_user_id",
-          "type": "text",
+        "expense_date": {
+          "name": "expense_date",
+          "type": "date",
           "primaryKey": false,
           "notNull": true
         },
-        "date": {
-          "name": "date",
-          "type": "date",
+        "category": {
+          "name": "category",
+          "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true
         },
@@ -482,43 +680,68 @@
         },
         "currency": {
           "name": "currency",
-          "type": "text",
+          "type": "char(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "'THB'"
         },
-        "category": {
-          "name": "category",
-          "type": "text",
+        "receipt_image": {
+          "name": "receipt_image",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
         },
         "note": {
           "name": "note",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
         },
-        "receipt_path": {
-          "name": "receipt_path",
+        "incurred_by_user_id": {
+          "name": "incurred_by_user_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meeting_id": {
+          "name": "meeting_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "expense_user_idx": {
-          "name": "expense_user_idx",
+        "expense_user_date_idx": {
+          "name": "expense_user_date_idx",
           "columns": [
             {
               "expression": "incurred_by_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expense_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -528,9 +751,38 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "expense_project_idx": {
+          "name": "expense_project_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"expense\".\"project_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
+        "expense_incurred_by_user_id_user_id_fk": {
+          "name": "expense_incurred_by_user_id_user_id_fk",
+          "tableFrom": "expense",
+          "tableTo": "user",
+          "columnsFrom": [
+            "incurred_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
         "expense_project_id_project_id_fk": {
           "name": "expense_project_id_project_id_fk",
           "tableFrom": "expense",
@@ -544,12 +796,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "expense_incurred_by_user_id_user_id_fk": {
-          "name": "expense_incurred_by_user_id_user_id_fk",
+        "expense_meeting_id_meeting_id_fk": {
+          "name": "expense_meeting_id_meeting_id_fk",
           "tableFrom": "expense",
-          "tableTo": "user",
+          "tableTo": "meeting",
           "columnsFrom": [
-            "incurred_by_user_id"
+            "meeting_id"
           ],
           "columnsTo": [
             "id"
@@ -561,7 +813,139 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "expense_amount_positive": {
+          "name": "expense_amount_positive",
+          "value": "\"expense\".\"amount\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.meeting_attendee": {
+      "name": "meeting_attendee",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "meeting_id": {
+          "name": "meeting_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "meeting_attendee_person_uq": {
+          "name": "meeting_attendee_person_uq",
+          "columns": [
+            {
+              "expression": "meeting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"meeting_attendee\".\"person_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "meeting_attendee_user_uq": {
+          "name": "meeting_attendee_user_uq",
+          "columns": [
+            {
+              "expression": "meeting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"meeting_attendee\".\"user_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "meeting_attendee_meeting_id_meeting_id_fk": {
+          "name": "meeting_attendee_meeting_id_meeting_id_fk",
+          "tableFrom": "meeting_attendee",
+          "tableTo": "meeting",
+          "columnsFrom": [
+            "meeting_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "meeting_attendee_person_id_person_id_fk": {
+          "name": "meeting_attendee_person_id_person_id_fk",
+          "tableFrom": "meeting_attendee",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "meeting_attendee_user_id_user_id_fk": {
+          "name": "meeting_attendee_user_id_user_id_fk",
+          "tableFrom": "meeting_attendee",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "meeting_attendee_exactly_one": {
+          "name": "meeting_attendee_exactly_one",
+          "value": "(\"meeting_attendee\".\"person_id\" IS NOT NULL) <> (\"meeting_attendee\".\"user_id\" IS NOT NULL)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.meeting_project": {
@@ -570,18 +954,40 @@
       "columns": {
         "meeting_id": {
           "name": "meeting_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
         "project_id": {
           "name": "project_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "meeting_project_uq": {
+          "name": "meeting_project_uq",
+          "columns": [
+            {
+              "expression": "meeting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "meeting_project_meeting_id_meeting_id_fk": {
           "name": "meeting_project_meeting_id_meeting_id_fk",
@@ -606,19 +1012,11 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {
-        "meeting_project_meeting_id_project_id_pk": {
-          "name": "meeting_project_meeting_id_project_id_pk",
-          "columns": [
-            "meeting_id",
-            "project_id"
-          ]
-        }
-      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -630,42 +1028,69 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "meeting_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
-        "account_id": {
-          "name": "account_id",
-          "type": "integer",
+        "title": {
+          "name": "title",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
-        "date": {
-          "name": "date",
+        "agenda": {
+          "name": "agenda",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outcome_notes": {
+          "name": "outcome_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'completed'"
+        },
+        "meeting_date": {
+          "name": "meeting_date",
           "type": "date",
           "primaryKey": false,
           "notNull": true
         },
-        "duration_minutes": {
-          "name": "duration_minutes",
-          "type": "integer",
+        "start_time": {
+          "name": "start_time",
+          "type": "time",
           "primaryKey": false,
           "notNull": false
         },
-        "notes": {
-          "name": "notes",
-          "type": "text",
+        "duration_hours": {
+          "name": "duration_hours",
+          "type": "numeric(4, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mode": {
+          "name": "mode",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'client_site'"
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
@@ -673,22 +1098,56 @@
           "name": "created_by_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "updated_by_id": {
+          "name": "updated_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "meeting_account_idx": {
-          "name": "meeting_account_idx",
+        "meeting_date_idx": {
+          "name": "meeting_date_idx",
+          "columns": [
+            {
+              "expression": "meeting_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "meeting_account_date_idx": {
+          "name": "meeting_account_date_idx",
           "columns": [
             {
               "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "meeting_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -724,7 +1183,20 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "meeting_updated_by_id_user_id_fk": {
+          "name": "meeting_updated_by_id_user_id_fk",
+          "tableFrom": "meeting",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -740,26 +1212,22 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "note_snippet_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "title": {
           "name": "title",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'other'"
         },
         "body": {
           "name": "body",
@@ -767,8 +1235,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "active": {
-          "name": "active",
+        "is_active": {
+          "name": "is_active",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -776,7 +1244,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -790,92 +1265,116 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.order": {
-      "name": "order",
+    "public.person": {
+      "name": "person",
       "schema": "",
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "order_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
-        "project_id": {
-          "name": "project_id",
-          "type": "integer",
+        "account_id": {
+          "name": "account_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
-        "po_number": {
-          "name": "po_number",
-          "type": "text",
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
-        "po_date": {
-          "name": "po_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_quotation_id": {
-          "name": "source_quotation_id",
-          "type": "integer",
+        "position": {
+          "name": "position",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
         },
-        "amount": {
-          "name": "amount",
-          "type": "numeric(15, 2)",
+        "department": {
+          "name": "department",
+          "type": "varchar(255)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "currency": {
-          "name": "currency",
-          "type": "text",
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mobile": {
+          "name": "mobile",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "line_id": {
+          "name": "line_id",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_primary": {
+          "name": "is_primary",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": "'THB'"
+          "default": false
         },
-        "status": {
-          "name": "status",
-          "type": "order_status",
-          "typeSchema": "public",
+        "decision_role": {
+          "name": "decision_role",
+          "type": "varchar(20)",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'ordered'"
+          "notNull": false
         },
         "created_by_id": {
           "name": "created_by_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "updated_by_id": {
+          "name": "updated_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "order_project_idx": {
-          "name": "order_project_idx",
+        "person_account_primary_idx": {
+          "name": "person_account_primary_idx",
           "columns": [
             {
-              "expression": "project_id",
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "is_primary",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -885,130 +1384,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        }
-      },
-      "foreignKeys": {
-        "order_project_id_project_id_fk": {
-          "name": "order_project_id_project_id_fk",
-          "tableFrom": "order",
-          "tableTo": "project",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         },
-        "order_source_quotation_id_quotation_id_fk": {
-          "name": "order_source_quotation_id_quotation_id_fk",
-          "tableFrom": "order",
-          "tableTo": "quotation",
-          "columnsFrom": [
-            "source_quotation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "order_created_by_id_user_id_fk": {
-          "name": "order_created_by_id_user_id_fk",
-          "tableFrom": "order",
-          "tableTo": "user",
-          "columnsFrom": [
-            "created_by_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.person": {
-      "name": "person",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "person_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "tel": {
-          "name": "tel",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mobile": {
-          "name": "mobile",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "person_account_idx": {
-          "name": "person_account_idx",
+        "person_one_primary_per_account": {
+          "name": "person_one_primary_per_account",
           "columns": [
             {
               "expression": "account_id",
@@ -1017,7 +1395,8 @@
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
+          "where": "\"person\".\"is_primary\"",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1034,7 +1413,33 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "person_created_by_id_user_id_fk": {
+          "name": "person_created_by_id_user_id_fk",
+          "tableFrom": "person",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "person_updated_by_id_user_id_fk": {
+          "name": "person_updated_by_id_user_id_fk",
+          "tableFrom": "person",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1050,43 +1455,37 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "picklist_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "kind": {
           "name": "kind",
-          "type": "picklist_kind",
-          "typeSchema": "public",
+          "type": "varchar(30)",
           "primaryKey": false,
           "notNull": true
         },
-        "value": {
-          "name": "value",
-          "type": "text",
+        "code": {
+          "name": "code",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
         "sort_order": {
           "name": "sort_order",
-          "type": "integer",
+          "type": "smallint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "active": {
-          "name": "active",
+        "is_active": {
+          "name": "is_active",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -1094,8 +1493,8 @@
         }
       },
       "indexes": {
-        "picklist_kind_value_uq": {
-          "name": "picklist_kind_value_uq",
+        "picklist_kind_code_uq": {
+          "name": "picklist_kind_code_uq",
           "columns": [
             {
               "expression": "kind",
@@ -1104,13 +1503,40 @@
               "nulls": "last"
             },
             {
-              "expression": "value",
+              "expression": "code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "picklist_kind_active_idx": {
+          "name": "picklist_kind_active_idx",
+          "columns": [
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sort_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1129,42 +1555,31 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "project_history_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "project_id": {
           "name": "project_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
         "field": {
           "name": "field",
-          "type": "text",
+          "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true
         },
-        "old_value": {
-          "name": "old_value",
-          "type": "text",
+        "from_value": {
+          "name": "from_value",
+          "type": "varchar(20)",
           "primaryKey": false,
           "notNull": false
         },
-        "new_value": {
-          "name": "new_value",
-          "type": "text",
+        "to_value": {
+          "name": "to_value",
+          "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true
         },
@@ -1172,11 +1587,11 @@
           "name": "changed_by_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "changed_at": {
           "name": "changed_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -1188,6 +1603,39 @@
           "columns": [
             {
               "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "changed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_history_lost_at_stage_idx": {
+          "name": "project_history_lost_at_stage_idx",
+          "columns": [
+            {
+              "expression": "field",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "to_value",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "changed_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1210,7 +1658,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "project_history_changed_by_id_user_id_fk": {
@@ -1223,7 +1671,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1239,37 +1687,37 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "project_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "integer",
-          "primaryKey": false,
           "notNull": true
+        },
+        "project_no": {
+          "name": "project_no",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": false
         },
         "name": {
           "name": "name",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
+        "account_id": {
+          "name": "account_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "primary_person_id": {
+          "name": "primary_person_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "type": {
           "name": "type",
-          "type": "project_type",
-          "typeSchema": "public",
+          "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true
         },
@@ -1282,15 +1730,26 @@
         },
         "status": {
           "name": "status",
-          "type": "project_status",
-          "typeSchema": "public",
+          "type": "varchar(10)",
           "primaryKey": false,
           "notNull": true,
           "default": "'open'"
         },
         "lost_reason": {
           "name": "lost_reason",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lost_note": {
+          "name": "lost_note",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "competitor": {
+          "name": "competitor",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
         },
@@ -1300,41 +1759,126 @@
           "primaryKey": false,
           "notNull": false
         },
+        "quoted_value": {
+          "name": "quoted_value",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "currency": {
           "name": "currency",
-          "type": "text",
+          "type": "char(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "'THB'"
         },
-        "owner_id": {
-          "name": "owner_id",
+        "expected_close_date": {
+          "name": "expected_close_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "owner_user_id": {
+          "name": "owner_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "description": {
-          "name": "description",
+        "lead_source_id": {
+          "name": "lead_source_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "followup_interval_days": {
+          "name": "followup_interval_days",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "followup_paused": {
+          "name": "followup_paused",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "parent_project_id": {
+          "name": "parent_project_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_id": {
+          "name": "created_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_id": {
+          "name": "updated_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
+        "project_pipeline_idx": {
+          "name": "project_pipeline_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "progress",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_owner_idx": {
+          "name": "project_owner_idx",
+          "columns": [
+            {
+              "expression": "owner_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "project_account_idx": {
           "name": "project_account_idx",
           "columns": [
@@ -1350,17 +1894,56 @@
           "method": "btree",
           "with": {}
         },
-        "project_owner_idx": {
-          "name": "project_owner_idx",
+        "project_reorder_cohort_idx": {
+          "name": "project_reorder_cohort_idx",
           "columns": [
             {
-              "expression": "owner_id",
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
+          "where": "\"project\".\"type\" = 'consumable'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_parent_idx": {
+          "name": "project_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"project\".\"parent_project_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_close_date_idx": {
+          "name": "project_close_date_idx",
+          "columns": [
+            {
+              "expression": "expected_close_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"project\".\"status\" = 'open'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1377,20 +1960,278 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "project_owner_id_user_id_fk": {
-          "name": "project_owner_id_user_id_fk",
+        "project_primary_person_id_person_id_fk": {
+          "name": "project_primary_person_id_person_id_fk",
+          "tableFrom": "project",
+          "tableTo": "person",
+          "columnsFrom": [
+            "primary_person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "project_owner_user_id_user_id_fk": {
+          "name": "project_owner_user_id_user_id_fk",
           "tableFrom": "project",
           "tableTo": "user",
           "columnsFrom": [
-            "owner_id"
+            "owner_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "project_lead_source_id_picklist_id_fk": {
+          "name": "project_lead_source_id_picklist_id_fk",
+          "tableFrom": "project",
+          "tableTo": "picklist",
+          "columnsFrom": [
+            "lead_source_id"
           ],
           "columnsTo": [
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "project_parent_project_id_project_id_fk": {
+          "name": "project_parent_project_id_project_id_fk",
+          "tableFrom": "project",
+          "tableTo": "project",
+          "columnsFrom": [
+            "parent_project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "project_created_by_id_user_id_fk": {
+          "name": "project_created_by_id_user_id_fk",
+          "tableFrom": "project",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "project_updated_by_id_user_id_fk": {
+          "name": "project_updated_by_id_user_id_fk",
+          "tableFrom": "project",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "project_progress_steps": {
+          "name": "project_progress_steps",
+          "value": "\"project\".\"progress\" IN (10,20,30,40,50,60,70,80,90,100)"
+        },
+        "project_lost_needs_reason": {
+          "name": "project_lost_needs_reason",
+          "value": "\"project\".\"status\" <> 'lost' OR \"project\".\"lost_reason\" IS NOT NULL"
+        },
+        "project_parent_part_only": {
+          "name": "project_parent_part_only",
+          "value": "\"project\".\"parent_project_id\" IS NULL OR \"project\".\"type\" = 'part'"
+        },
+        "project_no_self_parent": {
+          "name": "project_no_self_parent",
+          "value": "\"project\".\"parent_project_id\" IS NULL OR \"project\".\"parent_project_id\" <> \"project\".\"id\""
+        },
+        "project_interval_consumable_only": {
+          "name": "project_interval_consumable_only",
+          "value": "\"project\".\"followup_interval_days\" IS NULL OR \"project\".\"type\" = 'consumable'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.purchase_order": {
+      "name": "purchase_order",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "po_number": {
+          "name": "po_number",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "po_date": {
+          "name": "po_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_quotation_id": {
+          "name": "source_quotation_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "char(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'THB'"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ordered'"
+        },
+        "is_void": {
+          "name": "is_void",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_by_id": {
+          "name": "created_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_id": {
+          "name": "updated_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "purchase_order_project_date_idx": {
+          "name": "purchase_order_project_date_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "po_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "NOT \"purchase_order\".\"is_void\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "purchase_order_project_id_project_id_fk": {
+          "name": "purchase_order_project_id_project_id_fk",
+          "tableFrom": "purchase_order",
+          "tableTo": "project",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "purchase_order_source_quotation_id_quotation_id_fk": {
+          "name": "purchase_order_source_quotation_id_quotation_id_fk",
+          "tableFrom": "purchase_order",
+          "tableTo": "quotation",
+          "columnsFrom": [
+            "source_quotation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "purchase_order_created_by_id_user_id_fk": {
+          "name": "purchase_order_created_by_id_user_id_fk",
+          "tableFrom": "purchase_order",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "purchase_order_updated_by_id_user_id_fk": {
+          "name": "purchase_order_updated_by_id_user_id_fk",
+          "tableFrom": "purchase_order",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1406,18 +2247,40 @@
       "columns": {
         "quotation_id": {
           "name": "quotation_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
         "person_id": {
           "name": "person_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "quotation_cc_uq": {
+          "name": "quotation_cc_uq",
+          "columns": [
+            {
+              "expression": "quotation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "quotation_cc_quotation_id_quotation_id_fk": {
           "name": "quotation_cc_quotation_id_quotation_id_fk",
@@ -1442,127 +2305,88 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {
-        "quotation_cc_quotation_id_person_id_pk": {
-          "name": "quotation_cc_quotation_id_person_id_pk",
-          "columns": [
-            "quotation_id",
-            "person_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.quotation_counter": {
-      "name": "quotation_counter",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "default": 1
-        },
-        "last_number": {
-          "name": "last_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.quotation_line_component": {
-      "name": "quotation_line_component",
+    "public.quotation_component": {
+      "name": "quotation_component",
       "schema": "",
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "quotation_line_component_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
-        "line_id": {
-          "name": "line_id",
-          "type": "integer",
+        "quotation_line_id": {
+          "name": "quotation_line_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
         "sequence": {
           "name": "sequence",
-          "type": "integer",
+          "type": "smallint",
           "primaryKey": false,
           "notNull": true
         },
         "quantity": {
           "name": "quantity",
-          "type": "numeric(15, 3)",
+          "type": "numeric(12, 3)",
           "primaryKey": false,
           "notNull": true,
           "default": "'1'"
         },
-        "code": {
-          "name": "code",
-          "type": "text",
+        "item_code": {
+          "name": "item_code",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": false
         },
-        "name": {
-          "name": "name",
-          "type": "text",
+        "item_name": {
+          "name": "item_name",
+          "type": "varchar(500)",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {
-        "qlc_line_idx": {
-          "name": "qlc_line_idx",
+        "quotation_component_seq_uq": {
+          "name": "quotation_component_seq_uq",
           "columns": [
             {
-              "expression": "line_id",
+              "expression": "quotation_line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sequence",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
-        "quotation_line_component_line_id_quotation_line_id_fk": {
-          "name": "quotation_line_component_line_id_quotation_line_id_fk",
-          "tableFrom": "quotation_line_component",
+        "quotation_component_quotation_line_id_quotation_line_id_fk": {
+          "name": "quotation_component_quotation_line_id_quotation_line_id_fk",
+          "tableFrom": "quotation_component",
           "tableTo": "quotation_line",
           "columnsFrom": [
-            "line_id"
+            "quotation_line_id"
           ],
           "columnsTo": [
             "id"
@@ -1583,63 +2407,51 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "quotation_line_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "quotation_id": {
           "name": "quotation_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
         "sequence": {
           "name": "sequence",
-          "type": "integer",
+          "type": "smallint",
           "primaryKey": false,
           "notNull": true
         },
         "item_code": {
           "name": "item_code",
-          "type": "text",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": false
         },
         "item_name": {
           "name": "item_name",
-          "type": "text",
+          "type": "varchar(500)",
           "primaryKey": false,
           "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "quantity": {
           "name": "quantity",
-          "type": "numeric(15, 3)",
+          "type": "numeric(12, 3)",
           "primaryKey": false,
           "notNull": true
         },
-        "unit": {
-          "name": "unit",
-          "type": "text",
+        "unit_id": {
+          "name": "unit_id",
+          "type": "bigint",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'ea'"
+          "notNull": false
+        },
+        "moq_note": {
+          "name": "moq_note",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
         },
         "unit_price": {
           "name": "unit_price",
@@ -1649,19 +2461,12 @@
         },
         "discount_type": {
           "name": "discount_type",
-          "type": "discount_type",
-          "typeSchema": "public",
+          "type": "varchar(10)",
           "primaryKey": false,
           "notNull": false
         },
         "discount_value": {
           "name": "discount_value",
-          "type": "numeric(15, 4)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "unit_cost": {
-          "name": "unit_cost",
           "type": "numeric(15, 2)",
           "primaryKey": false,
           "notNull": false
@@ -1673,8 +2478,32 @@
           "notNull": true,
           "default": "'0.00'"
         },
-        "image_path": {
-          "name": "image_path",
+        "unit_cost": {
+          "name": "unit_cost",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "line_cost": {
+          "name": "line_cost",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "line_margin": {
+          "name": "line_margin",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image": {
+          "name": "image",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "line_notes": {
+          "name": "line_notes",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1701,6 +2530,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "quotation_line_item_code_idx": {
+          "name": "quotation_line_item_code_idx",
+          "columns": [
+            {
+              "expression": "item_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1716,6 +2560,19 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "quotation_line_unit_id_picklist_id_fk": {
+          "name": "quotation_line_unit_id_picklist_id_fk",
+          "tableFrom": "quotation_line",
+          "tableTo": "picklist",
+          "columnsFrom": [
+            "unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1730,125 +2587,51 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "quotation_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "project_id": {
           "name": "project_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
-        "number": {
-          "name": "number",
-          "type": "text",
+        "quotation_no": {
+          "name": "quotation_no",
+          "type": "varchar(30)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "revision": {
           "name": "revision",
-          "type": "integer",
+          "type": "smallint",
           "primaryKey": false,
           "notNull": true,
-          "default": 0
+          "default": 1
         },
         "status": {
           "name": "status",
-          "type": "quotation_status",
-          "typeSchema": "public",
+          "type": "varchar(20)",
           "primaryKey": false,
           "notNull": true,
           "default": "'draft'"
         },
-        "date": {
-          "name": "date",
+        "quotation_date": {
+          "name": "quotation_date",
           "type": "date",
           "primaryKey": false,
           "notNull": true
         },
-        "validity_text": {
-          "name": "validity_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "delivery_date_text": {
-          "name": "delivery_date_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "payment_term_text": {
-          "name": "payment_term_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lead_time_text": {
-          "name": "lead_time_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "regulatory_note": {
-          "name": "regulatory_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'THB'"
-        },
-        "incoterm": {
-          "name": "incoterm",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "country_of_origin": {
-          "name": "country_of_origin",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "vat_applied": {
-          "name": "vat_applied",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "cost_currency": {
-          "name": "cost_currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "fx_rate": {
-          "name": "fx_rate",
-          "type": "numeric(15, 6)",
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "bill_to_name": {
           "name": "bill_to_name",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
         },
@@ -1860,103 +2643,246 @@
         },
         "bill_to_tax_id": {
           "name": "bill_to_tax_id",
-          "type": "text",
+          "type": "varchar(20)",
           "primaryKey": false,
           "notNull": false
         },
-        "bill_to_tax_branch": {
-          "name": "bill_to_tax_branch",
-          "type": "text",
+        "bill_to_branch": {
+          "name": "bill_to_branch",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": false
         },
         "attention_person_id": {
           "name": "attention_person_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
-        "attention_name": {
-          "name": "attention_name",
+        "currency": {
+          "name": "currency",
+          "type": "char(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'THB'"
+        },
+        "cost_currency": {
+          "name": "cost_currency",
+          "type": "char(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fx_rate_cost_to_selling": {
+          "name": "fx_rate_cost_to_selling",
+          "type": "numeric(14, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validity_text": {
+          "name": "validity_text",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivery_date_text": {
+          "name": "delivery_date_text",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_term_text": {
+          "name": "payment_term_text",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "incoterm_id": {
+          "name": "incoterm_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "country_of_origin_id": {
+          "name": "country_of_origin_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lead_time_text": {
+          "name": "lead_time_text",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "attention_email": {
-          "name": "attention_email",
+        "remarks": {
+          "name": "remarks",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "attention_tel": {
-          "name": "attention_tel",
+        "vat_applied": {
+          "name": "vat_applied",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "vat_rate": {
+          "name": "vat_rate",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'7.00'"
+        },
+        "wht_note": {
+          "name": "wht_note",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "salesperson_name": {
-          "name": "salesperson_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "salesperson_phone": {
-          "name": "salesperson_phone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "total_amount": {
-          "name": "total_amount",
+        "subtotal": {
+          "name": "subtotal",
           "type": "numeric(15, 2)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'0.00'"
+        },
+        "discount_total": {
+          "name": "discount_total",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0.00'"
         },
         "vat_amount": {
           "name": "vat_amount",
           "type": "numeric(15, 2)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'0.00'"
         },
         "grand_total": {
           "name": "grand_total",
           "type": "numeric(15, 2)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'0.00'"
         },
-        "issued_at": {
-          "name": "issued_at",
-          "type": "timestamp",
+        "total_cost": {
+          "name": "total_cost",
+          "type": "numeric(15, 2)",
           "primaryKey": false,
           "notNull": false
+        },
+        "total_margin": {
+          "name": "total_margin",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salesperson_user_id": {
+          "name": "salesperson_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
         "created_by_id": {
           "name": "created_by_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "updated_by_id": {
+          "name": "updated_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "quotation_project_idx": {
-          "name": "quotation_project_idx",
+        "quotation_no_revision_uq": {
+          "name": "quotation_no_revision_uq",
+          "columns": [
+            {
+              "expression": "quotation_no",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"quotation\".\"quotation_no\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "quotation_project_status_idx": {
+          "name": "quotation_project_status_idx",
           "columns": [
             {
               "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "quotation_awaiting_idx": {
+          "name": "quotation_awaiting_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "issued_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "quotation_no_idx": {
+          "name": "quotation_no_idx",
+          "columns": [
+            {
+              "expression": "quotation_no",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1979,7 +2905,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "quotation_attention_person_id_person_id_fk": {
@@ -1992,7 +2918,46 @@
           "columnsTo": [
             "id"
           ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "quotation_incoterm_id_picklist_id_fk": {
+          "name": "quotation_incoterm_id_picklist_id_fk",
+          "tableFrom": "quotation",
+          "tableTo": "picklist",
+          "columnsFrom": [
+            "incoterm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "quotation_country_of_origin_id_picklist_id_fk": {
+          "name": "quotation_country_of_origin_id_picklist_id_fk",
+          "tableFrom": "quotation",
+          "tableTo": "picklist",
+          "columnsFrom": [
+            "country_of_origin_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "quotation_salesperson_user_id_user_id_fk": {
+          "name": "quotation_salesperson_user_id_user_id_fk",
+          "tableFrom": "quotation",
+          "tableTo": "user",
+          "columnsFrom": [
+            "salesperson_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "quotation_created_by_id_user_id_fk": {
@@ -2005,22 +2970,40 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "quotation_updated_by_id_user_id_fk": {
+          "name": "quotation_updated_by_id_user_id_fk",
+          "tableFrom": "quotation",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "quotation_number_unique": {
-          "name": "quotation_number_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "number"
-          ]
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "quotation_issued_has_no": {
+          "name": "quotation_issued_has_no",
+          "value": "\"quotation\".\"status\" = 'draft' OR \"quotation\".\"quotation_no\" IS NOT NULL"
+        },
+        "quotation_issued_has_ts": {
+          "name": "quotation_issued_has_ts",
+          "value": "\"quotation\".\"status\" = 'draft' OR \"quotation\".\"issued_at\" IS NOT NULL"
+        },
+        "quotation_totals_nonneg": {
+          "name": "quotation_totals_nonneg",
+          "value": "\"quotation\".\"subtotal\" >= 0 AND \"quotation\".\"grand_total\" >= 0"
         }
       },
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.session": {
@@ -2035,7 +3018,7 @@
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -2065,14 +3048,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -2114,56 +3097,34 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "bigserial",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "task_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "title": {
           "name": "title",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
-        "type": {
-          "name": "type",
+        "description": {
+          "name": "description",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "project_id": {
-          "name": "project_id",
-          "type": "integer",
+        "type_id": {
+          "name": "type_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
-        "account_id": {
-          "name": "account_id",
-          "type": "integer",
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
           "primaryKey": false,
-          "notNull": false
-        },
-        "person_id": {
-          "name": "person_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "assigned_to_id": {
-          "name": "assigned_to_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'open'"
         },
         "due_date": {
           "name": "due_date",
@@ -2171,29 +3132,46 @@
           "primaryKey": false,
           "notNull": false
         },
-        "done": {
-          "name": "done",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "done_at": {
-          "name": "done_at",
-          "type": "timestamp",
+        "completed_date": {
+          "name": "completed_date",
+          "type": "date",
           "primaryKey": false,
           "notNull": false
         },
-        "auto": {
-          "name": "auto",
+        "assignee_user_id": {
+          "name": "assignee_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_auto_generated": {
+          "name": "is_auto_generated",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": false
         },
-        "notes": {
-          "name": "notes",
-          "type": "text",
+        "recurrence_parent_task_id": {
+          "name": "recurrence_parent_task_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
@@ -2201,28 +3179,47 @@
           "name": "created_by_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "updated_by_id": {
+          "name": "updated_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "task_assigned_idx": {
-          "name": "task_assigned_idx",
+        "task_my_tasks_idx": {
+          "name": "task_my_tasks_idx",
           "columns": [
             {
-              "expression": "assigned_to_id",
+              "expression": "assignee_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "done",
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "due_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2244,12 +3241,77 @@
             }
           ],
           "isUnique": false,
+          "where": "\"task\".\"project_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_recurrence_idx": {
+          "name": "task_recurrence_idx",
+          "columns": [
+            {
+              "expression": "recurrence_parent_task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"task\".\"recurrence_parent_task_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_auto_idx": {
+          "name": "task_auto_idx",
+          "columns": [
+            {
+              "expression": "is_auto_generated",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"task\".\"is_auto_generated\"",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
+        "task_type_id_picklist_id_fk": {
+          "name": "task_type_id_picklist_id_fk",
+          "tableFrom": "task",
+          "tableTo": "picklist",
+          "columnsFrom": [
+            "type_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "task_assignee_user_id_user_id_fk": {
+          "name": "task_assignee_user_id_user_id_fk",
+          "tableFrom": "task",
+          "tableTo": "user",
+          "columnsFrom": [
+            "assignee_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
         "task_project_id_project_id_fk": {
           "name": "task_project_id_project_id_fk",
           "tableFrom": "task",
@@ -2289,12 +3351,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "task_assigned_to_id_user_id_fk": {
-          "name": "task_assigned_to_id_user_id_fk",
+        "task_recurrence_parent_task_id_task_id_fk": {
+          "name": "task_recurrence_parent_task_id_task_id_fk",
           "tableFrom": "task",
-          "tableTo": "user",
+          "tableTo": "task",
           "columnsFrom": [
-            "assigned_to_id"
+            "recurrence_parent_task_id"
           ],
           "columnsTo": [
             "id"
@@ -2312,14 +3374,36 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "task_updated_by_id_user_id_fk": {
+          "name": "task_updated_by_id_user_id_fk",
+          "tableFrom": "task",
+          "tableTo": "user",
+          "columnsFrom": [
+            "updated_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "task_done_has_date": {
+          "name": "task_done_has_date",
+          "value": "\"task\".\"status\" <> 'done' OR \"task\".\"completed_date\" IS NOT NULL"
+        },
+        "task_no_self_recurrence": {
+          "name": "task_no_self_recurrence",
+          "value": "\"task\".\"recurrence_parent_task_id\" IS NULL OR \"task\".\"recurrence_parent_task_id\" <> \"task\".\"id\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.user": {
@@ -2334,13 +3418,13 @@
         },
         "name": {
           "name": "name",
-          "type": "text",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
         "email": {
           "name": "email",
-          "type": "text",
+          "type": "varchar(254)",
           "primaryKey": false,
           "notNull": true
         },
@@ -2357,21 +3441,21 @@
           "primaryKey": false,
           "notNull": false
         },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'sales'"
-        },
         "phone_mobile": {
           "name": "phone_mobile",
-          "type": "text",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": false
         },
-        "active": {
-          "name": "active",
+        "role": {
+          "name": "role",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'sales_engineer'"
+        },
+        "is_active": {
+          "name": "is_active",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -2379,14 +3463,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -2432,20 +3516,20 @@
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -2460,76 +3544,7 @@
       "isRLSEnabled": false
     }
   },
-  "enums": {
-    "public.account_type": {
-      "name": "account_type",
-      "schema": "public",
-      "values": [
-        "customer",
-        "principal",
-        "partner",
-        "other"
-      ]
-    },
-    "public.discount_type": {
-      "name": "discount_type",
-      "schema": "public",
-      "values": [
-        "amount",
-        "percent"
-      ]
-    },
-    "public.order_status": {
-      "name": "order_status",
-      "schema": "public",
-      "values": [
-        "ordered",
-        "delivered",
-        "invoiced"
-      ]
-    },
-    "public.picklist_kind": {
-      "name": "picklist_kind",
-      "schema": "public",
-      "values": [
-        "incoterm",
-        "unit",
-        "country",
-        "document_type",
-        "task_type",
-        "lead_source",
-        "lost_reason"
-      ]
-    },
-    "public.project_status": {
-      "name": "project_status",
-      "schema": "public",
-      "values": [
-        "open",
-        "won",
-        "lost"
-      ]
-    },
-    "public.project_type": {
-      "name": "project_type",
-      "schema": "public",
-      "values": [
-        "consumable",
-        "equipment",
-        "part",
-        "service"
-      ]
-    },
-    "public.quotation_status": {
-      "name": "quotation_status",
-      "schema": "public",
-      "values": [
-        "draft",
-        "issued",
-        "superseded"
-      ]
-    }
-  },
+  "enums": {},
   "schemas": {},
   "sequences": {},
   "roles": {},

@@ -1,7 +1,6 @@
-// The quotation view (Flow C). Phase 1 note: the full builder — typed lines
-// with autocomplete, live margin via decimal.js in a client component — is
-// blocked on client answers B3 (discount format), B5 (counter value) and B6
-// (terms per line?). This screen renders what exists and exports the real PDF.
+// The quotation view (Flow C). The full builder — line CRUD, autocomplete,
+// live margin, issue flow — is Phase C (approved, K6). This screen renders
+// what exists and exports the real PDF.
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireSessionOrRedirect } from '@/lib/session'
@@ -18,20 +17,37 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
   const quotationId = Number(id)
   if (!Number.isInteger(quotationId)) notFound()
 
-  const qRows = await db.select().from(quotations).where(eq(quotations.id, quotationId)).limit(1)
+  const qRows = await db
+    .select({
+      id: quotations.id,
+      projectId: quotations.projectId,
+      quotationNo: quotations.quotationNo,
+      revision: quotations.revision,
+      status: quotations.status,
+      quotationDate: quotations.quotationDate,
+      currency: quotations.currency,
+      vatApplied: quotations.vatApplied,
+      vatRate: quotations.vatRate,
+      subtotal: quotations.subtotal,
+      discountTotal: quotations.discountTotal,
+      vatAmount: quotations.vatAmount,
+      grandTotal: quotations.grandTotal,
+    })
+    .from(quotations)
+    .where(eq(quotations.id, quotationId))
+    .limit(1)
   const q = qRows[0]
   if (!q) notFound()
 
   const lines = await db
     .select({
-      // G2: pass fields, never rows — unitCost is deliberately not selected,
-      // so it cannot reach the page payload.
+      // G2: pass fields, never rows — unitCost/lineCost/lineMargin are
+      // deliberately not selected, so they cannot reach the page payload.
       id: quotationLines.id,
       sequence: quotationLines.sequence,
       itemCode: quotationLines.itemCode,
       itemName: quotationLines.itemName,
       quantity: quotationLines.quantity,
-      unit: quotationLines.unit,
       unitPrice: quotationLines.unitPrice,
       amount: quotationLines.amount,
     })
@@ -39,17 +55,18 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
     .where(eq(quotationLines.quotationId, quotationId))
     .orderBy(asc(quotationLines.sequence))
 
-  const displayNumber = q.revision > 0 ? `${q.number}-R${q.revision}` : q.number
+  const base = q.quotationNo ?? 'Draft'
+  const displayNo = q.revision > 1 ? `${base}-R${q.revision}` : base
 
   return (
     <>
       <h1>
-        {displayNumber} <span className="badge">{q.status}</span>
+        {displayNo} <span className="badge">{q.status}</span>
       </h1>
       <div className="card">
         <p>
-          <Link href={`/projects/${q.projectId}`}>Project #{q.projectId}</Link> · {q.date} ·{' '}
-          {q.currency}
+          <Link href={`/projects/${q.projectId}`}>Project #{q.projectId}</Link> ·{' '}
+          {q.quotationDate} · {q.currency}
         </p>
         <p>
           <a href={`/api/quotations/${q.id}/pdf`} target="_blank">
@@ -73,7 +90,7 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
           {lines.length === 0 && (
             <tr>
               <td colSpan={5} className="muted">
-                No lines yet.
+                No lines yet — the builder lands in Phase C.
               </td>
             </tr>
           )}
@@ -84,36 +101,44 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
                 {l.itemCode ? `${l.itemCode} ` : ''}
                 {l.itemName}
               </td>
-              <td className="num">
-                {l.quantity} {l.unit}
-              </td>
+              <td className="num">{l.quantity}</td>
               <td className="num">{formatMoney(l.unitPrice)}</td>
               <td className="num">{formatMoney(l.amount)}</td>
             </tr>
           ))}
         </tbody>
-        {q.grandTotal != null && (
-          <tfoot>
+        <tfoot>
+          <tr>
+            <td colSpan={4} className="num">
+              Total
+            </td>
+            <td className="num">{formatMoney(q.subtotal)}</td>
+          </tr>
+          {q.discountTotal !== '0.00' && (
             <tr>
               <td colSpan={4} className="num">
-                Total
+                Discount
               </td>
-              <td className="num">{q.totalAmount != null ? formatMoney(q.totalAmount) : '—'}</td>
+              <td className="num">-{formatMoney(q.discountTotal)}</td>
             </tr>
+          )}
+          {q.vatApplied && (
             <tr>
               <td colSpan={4} className="num">
-                VAT 7%
+                VAT {q.vatRate.replace(/\.0+$/, '')}%
               </td>
-              <td className="num">{q.vatAmount != null ? formatMoney(q.vatAmount) : '—'}</td>
+              <td className="num">{formatMoney(q.vatAmount)}</td>
             </tr>
-            <tr>
-              <td colSpan={4} className="num">
-                Grand Total
-              </td>
-              <td className="num">{formatMoney(q.grandTotal)}</td>
-            </tr>
-          </tfoot>
-        )}
+          )}
+          <tr>
+            <td colSpan={4} className="num">
+              <strong>Grand Total</strong>
+            </td>
+            <td className="num">
+              <strong>{formatMoney(q.grandTotal)}</strong>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </>
   )

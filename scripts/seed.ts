@@ -1,23 +1,46 @@
-// Development seed. Run after migrations: npm run db:seed
+// Development seed (02 §13: company → picklists → users → note snippets).
 //
-// ⚠️ LAUNCH NOTE (B5): the quotation counter below is a PLACEHOLDER. Before
-// go-live it must be seeded with VCS's real current counter value (high
-// 69000s) and verified by hand — restarting the sequence would collide with
-// documents already sent (ADR-0031).
+// ⚠️ LAUNCH NOTE (B5, ADR-0047): quotation_number_next below is a
+// PLACEHOLDER continuing from the known samples (QUO69054). Before go-live
+// it must be set to VCS's REAL current counter and verified by hand —
+// their sequence is live and restarting or colliding is not recoverable.
 import { Pool } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { sql } from 'drizzle-orm'
 import * as schema from '../src/db/schema'
 
-const SEED_PICKLISTS: Record<string, string[]> = {
-  incoterm: ['DDP', 'EXW', 'FOB', 'CIF'],
-  unit: ['ea', 'SET', 'kg', 'g', 'L', 'pc'],
-  country: ['Germany', 'Thailand', 'Japan', 'China', 'USA'],
-  document_type: ['Purchase Order', 'Specification', 'Drawing', 'Certificate', 'Report'],
-  task_type: ['Call', 'Visit', 'Quotation follow-up', 'Reorder follow-up', 'Other'],
-  lead_source: ['Existing customer', 'Referral', 'Principal lead', 'Exhibition', 'Website'],
-  // Final list is open question B9 — editable by the client later.
-  lost_reason: ['Price', 'Lead time', 'Lost to competitor', 'Project cancelled', 'No budget'],
+const SEED_PICKLISTS: Record<string, { code: string; label: string }[]> = {
+  incoterm: ['DDP', 'EXW', 'FOB', 'CIF', 'CIP'].map((c) => ({ code: c, label: c })),
+  unit: ['ea', 'SET', 'kg', 'g', 'L', 'pc'].map((c) => ({ code: c, label: c })),
+  country: ['Germany', 'Thailand', 'Japan', 'China', 'USA'].map((c) => ({ code: c, label: c })),
+  document_type: [
+    'Quotation',
+    'Proposal',
+    'TDS',
+    'MOQ',
+    'PO',
+    'Service Report',
+    'Delivery Note',
+    'Invoice',
+    'Other',
+  ].map((c) => ({ code: c, label: c })), // final list pending N6
+  task_type: [
+    { code: 'call', label: 'Call' },
+    { code: 'email', label: 'Email' },
+    { code: 'supplier_request', label: 'Supplier request' },
+    { code: 'internal_followup', label: 'Internal follow-up' },
+    { code: 'document_preparation', label: 'Document preparation' },
+    { code: 'site_visit', label: 'Site visit' },
+    { code: 'reorder_followup', label: 'Reorder follow-up' },
+  ],
+  lead_source: [
+    { code: 'existing_customer', label: 'Existing customer' },
+    { code: 'referral', label: 'Referral' },
+    { code: 'principal_lead', label: 'Principal lead' },
+    { code: 'exhibition', label: 'Exhibition' },
+    { code: 'website', label: 'Website' },
+  ],
+  // NOTE: no lost_reason kind — free text per ADR-0046 B9.
 }
 
 async function main() {
@@ -26,12 +49,6 @@ async function main() {
     max: 1,
   })
   const db = drizzle(pool, { schema })
-
-  // Quotation counter — placeholder, see the launch note above.
-  await db
-    .insert(schema.quotationCounter)
-    .values({ id: 1, lastNumber: 69000 })
-    .onConflictDoNothing()
 
   // Company singleton — placeholder values; edit in Admin → Company.
   await db
@@ -42,24 +59,43 @@ async function main() {
       nameEn: 'VCS Co., Ltd.',
       addressTh: 'กรุงเทพมหานคร ประเทศไทย',
       addressEn: 'Bangkok, Thailand',
-      tel: '02-000-0000',
-      thankYouTextTh: 'ขอขอบพระคุณที่ให้ความสนใจในสินค้าและบริการของเรา',
-      thankYouTextEn: 'Thank you for your interest in our products and services.',
+      phone: '02-000-0000',
+      quotationFooterTextTh: 'ขอขอบพระคุณที่ให้ความสนใจในสินค้าและบริการของเรา',
+      quotationFooterTextEn: 'Thank you for your interest in our products and services.',
+      quotationNumberNext: 69055, // ← B5 placeholder. Seed the REAL value before launch.
     })
     .onConflictDoNothing()
 
   for (const [kind, values] of Object.entries(SEED_PICKLISTS)) {
-    for (const [i, value] of values.entries()) {
+    for (const [i, v] of values.entries()) {
       await db
         .insert(schema.picklists)
-        .values({ kind: kind as (typeof schema.picklistKind.enumValues)[number], value, sortOrder: i })
+        .values({
+          kind: kind as schema.PicklistKind,
+          code: v.code,
+          label: v.label,
+          sortOrder: i,
+        })
         .onConflictDoNothing()
     }
   }
 
-  const counters = await db.execute(sql`select last_number from quotation_counter`)
-  console.log('Seeded. Quotation counter at:', (counters.rows[0] as { last_number: number }).last_number)
-  console.log('Create the first user with: ALLOW_SIGNUP=true npm run dev  → then POST /api/auth/sign-up/email')
+  // The motivating note snippet (02 §3.3).
+  await db
+    .insert(schema.noteSnippets)
+    .values({
+      title: 'Hazardous substances import permission',
+      category: 'regulatory',
+      body: 'This product contains restricted chemical which requires import permission from Hazardous Substances Control Bureau, Department of Industrial Works. It will take at least 8 weeks for permission certificate.',
+    })
+    .onConflictDoNothing()
+
+  const counter = await db.execute(
+    sql`select quotation_number_prefix, quotation_number_next from company where id = 1`,
+  )
+  const row = counter.rows[0] as { quotation_number_prefix: string; quotation_number_next: number }
+  console.log(`Seeded. Next quotation number: ${row.quotation_number_prefix}${row.quotation_number_next} (PLACEHOLDER — B5)`)
+  console.log('Create the first user with: ALLOW_SIGNUP=true npm run dev  → POST /api/auth/sign-up/email')
   await pool.end()
 }
 

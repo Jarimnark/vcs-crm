@@ -16,7 +16,7 @@ export default async function SnippetsPage() {
       {snippets.length === 0 && <p className="muted">None yet.</p>}
       {snippets.map((s) => (
         <div className="card" key={s.id}>
-          <strong>{s.title}</strong>
+          <strong>{s.title}</strong> <span className="badge">{s.category.replace('_', ' ')}</span>
           <p style={{ whiteSpace: 'pre-wrap' }}>{s.body}</p>
         </div>
       ))}
@@ -26,11 +26,20 @@ export default async function SnippetsPage() {
         <form className="stack" action={addNoteSnippetAction}>
           <label>
             Title
-            <input name="title" required maxLength={200} />
+            <input name="title" required maxLength={255} />
+          </label>
+          <label>
+            Category
+            <select name="category" defaultValue="other">
+              <option value="lead_time">Lead time</option>
+              <option value="regulatory">Regulatory</option>
+              <option value="terms">Terms</option>
+              <option value="other">Other</option>
+            </select>
           </label>
           <label>
             Body
-            <textarea name="body" rows={5} required maxLength={5000} />
+            <textarea name="body" rows={5} required maxLength={10000} />
           </label>
           <button>Add snippet</button>
         </form>

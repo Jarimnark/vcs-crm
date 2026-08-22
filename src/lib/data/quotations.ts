@@ -1,17 +1,21 @@
-// Data access for quotations. Assembles the whitelisted PDF payload via
-// buildQuotationPdfContext — nothing else may feed the render service.
+// Data access for quotations (02 §6). Assembles the whitelisted PDF payload
+// via buildQuotationPdfContext — nothing else may feed the render service.
 import 'server-only'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { asc, desc, eq } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db'
 import {
   company,
   people,
+  picklists,
   quotationCc,
-  quotationLineComponents,
+  quotationComponents,
   quotationLines,
   quotations,
+  users,
+  type QuotationStatus,
 } from '@/db/schema'
 import {
   buildQuotationPdfContext,
@@ -21,31 +25,30 @@ import {
 
 export interface QuotationSummaryDto {
   id: number
-  number: string
+  quotationNo: string | null
   revision: number
-  status: 'draft' | 'issued' | 'superseded'
-  date: string
+  status: QuotationStatus
+  quotationDate: string
   projectId: number
   currency: string
-  grandTotal: string | null
+  grandTotal: string
 }
 
 export async function listQuotationsForProject(projectId: number): Promise<QuotationSummaryDto[]> {
-  const rows = await db
+  return db
     .select({
       id: quotations.id,
-      number: quotations.number,
+      quotationNo: quotations.quotationNo,
       revision: quotations.revision,
       status: quotations.status,
-      date: quotations.date,
+      quotationDate: quotations.quotationDate,
       projectId: quotations.projectId,
       currency: quotations.currency,
       grandTotal: quotations.grandTotal,
     })
     .from(quotations)
     .where(eq(quotations.projectId, projectId))
-    .orderBy(desc(quotations.date), desc(quotations.id))
-  return rows
+    .orderBy(desc(quotations.quotationDate), desc(quotations.id))
 }
 
 async function fileToDataUri(relPath: string | null | undefined): Promise<string | null> {
@@ -65,47 +68,72 @@ async function fileToDataUri(relPath: string | null | undefined): Promise<string
 
 /**
  * Build the render-service payload for one quotation. Every field passes
- * through the whitelist in lib/pdf/context.ts; cost never leaves this module
- * because it is simply not selected into the view models.
+ * through the whitelist in lib/pdf/context.ts; cost never leaves this
+ * module because it is simply not selected into the view models.
  */
 export async function buildPdfPayload(quotationId: number): Promise<PdfContext | null> {
-  const qRows = await db.select().from(quotations).where(eq(quotations.id, quotationId)).limit(1)
-  const q = qRows[0]
-  if (!q) return null
+  const incotermPick = alias(picklists, 'incoterm_pick')
+  const countryPick = alias(picklists, 'country_pick')
+
+  const qRows = await db
+    .select({
+      q: quotations,
+      incotermLabel: incotermPick.label,
+      countryLabel: countryPick.label,
+      salespersonName: users.name,
+      salespersonMobile: users.phoneMobile,
+      attentionName: people.name,
+      attentionEmail: people.email,
+      attentionPhone: people.mobile,
+      attentionPhoneAlt: people.phone,
+    })
+    .from(quotations)
+    .leftJoin(incotermPick, eq(quotations.incotermId, incotermPick.id))
+    .leftJoin(countryPick, eq(quotations.countryOfOriginId, countryPick.id))
+    .leftJoin(users, eq(quotations.salespersonUserId, users.id))
+    .leftJoin(people, eq(quotations.attentionPersonId, people.id))
+    .where(eq(quotations.id, quotationId))
+    .limit(1)
+  const row = qRows[0]
+  if (!row) return null
+  const q = row.q
 
   const companyRows = await db.select().from(company).limit(1)
   const c = companyRows[0]
-  if (!c) throw new Error('Company settings are not configured (admin → company)')
+  if (!c) throw new Error('Company settings are not configured (Admin → Company)')
 
+  const unitPick = alias(picklists, 'unit_pick')
   const lineRows = await db
-    .select()
+    .select({ line: quotationLines, unitLabel: unitPick.label })
     .from(quotationLines)
+    .leftJoin(unitPick, eq(quotationLines.unitId, unitPick.id))
     .where(eq(quotationLines.quotationId, quotationId))
     .orderBy(asc(quotationLines.sequence))
 
   const lines: QuotationLineRow[] = await Promise.all(
-    lineRows.map(async (l) => {
+    lineRows.map(async ({ line: l, unitLabel }) => {
       const comps = await db
         .select()
-        .from(quotationLineComponents)
-        .where(eq(quotationLineComponents.lineId, l.id))
-        .orderBy(asc(quotationLineComponents.sequence))
+        .from(quotationComponents)
+        .where(eq(quotationComponents.quotationLineId, l.id))
+        .orderBy(asc(quotationComponents.sequence))
       return {
         sequence: l.sequence,
         itemCode: l.itemCode,
         itemName: l.itemName,
-        description: l.description,
         quantity: l.quantity,
-        unit: l.unit,
+        unit: unitLabel,
+        moqNote: l.moqNote,
         unitPrice: l.unitPrice,
         discountType: l.discountType,
         discountValue: l.discountValue,
         amount: l.amount,
-        imageDataUri: await fileToDataUri(l.imagePath),
+        lineNotes: l.lineNotes,
+        imageDataUri: await fileToDataUri(l.image),
         components: comps.map((cmp) => ({
           quantity: cmp.quantity,
-          code: cmp.code,
-          name: cmp.name,
+          itemCode: cmp.itemCode,
+          itemName: cmp.itemName,
         })),
       }
     }),
@@ -123,38 +151,42 @@ export async function buildPdfPayload(quotationId: number): Promise<PdfContext |
       nameEn: c.nameEn,
       addressTh: c.addressTh,
       addressEn: c.addressEn,
-      tel: c.tel,
+      phone: c.phone,
       taxId: c.taxId,
-      logoDataUri: await fileToDataUri(c.logoPath),
-      thankYouTextTh: c.thankYouTextTh,
-      thankYouTextEn: c.thankYouTextEn,
+      logoDataUri: await fileToDataUri(c.logo),
+      footerTextTh: c.quotationFooterTextTh,
+      footerTextEn: c.quotationFooterTextEn,
+      termsText: c.quotationTermsText, // the T&C page (ADR-0046 B2)
     },
     quotation: {
-      number: q.number,
+      quotationNo: q.quotationNo,
       revision: q.revision,
-      date: q.date,
-      validityText: q.validityText,
-      deliveryDateText: q.deliveryDateText,
-      paymentTermText: q.paymentTermText,
-      leadTimeText: q.leadTimeText,
-      regulatoryNote: q.regulatoryNote,
-      currency: q.currency,
-      incoterm: q.incoterm,
-      countryOfOrigin: q.countryOfOrigin,
-      vatApplied: q.vatApplied,
+      quotationDate: q.quotationDate,
       billToName: q.billToName,
       billToAddress: q.billToAddress,
       billToTaxId: q.billToTaxId,
-      billToTaxBranch: q.billToTaxBranch,
-      attentionName: q.attentionName,
-      attentionEmail: q.attentionEmail,
-      attentionTel: q.attentionTel,
-      ccNames: cc.map((p) => p.name),
-      salespersonName: q.salespersonName,
-      salespersonPhone: q.salespersonPhone,
-      totalAmount: q.totalAmount,
+      billToBranch: q.billToBranch,
+      validityText: q.validityText,
+      deliveryDateText: q.deliveryDateText,
+      paymentTermText: q.paymentTermText,
+      currency: q.currency,
+      incoterm: row.incotermLabel,
+      countryOfOrigin: row.countryLabel,
+      leadTimeText: q.leadTimeText,
+      remarks: q.remarks,
+      whtNote: q.whtNote,
+      vatApplied: q.vatApplied,
+      vatRate: q.vatRate,
+      subtotal: q.subtotal,
+      discountTotal: q.discountTotal,
       vatAmount: q.vatAmount,
       grandTotal: q.grandTotal,
+      salespersonName: row.salespersonName,
+      salespersonMobile: row.salespersonMobile,
+      attentionName: row.attentionName,
+      attentionEmail: row.attentionEmail,
+      attentionPhone: row.attentionPhone ?? row.attentionPhoneAlt,
+      ccNames: cc.map((p) => p.name),
     },
     lines,
   })

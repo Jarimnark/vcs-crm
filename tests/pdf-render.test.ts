@@ -48,7 +48,7 @@ describe.skipIf(!enabled)('PDF service integration', () => {
     const text = execFileSync('pdftotext', ['-enc', 'UTF-8', tmp, '-'], { encoding: 'utf8' })
 
     // The whitelist held across the network boundary:
-    for (const sentinel of ['123456', '123,456', '987654', '987,654', '424242', '99999']) {
+    for (const sentinel of ['123456', '123,456', '987654', '987,654', '424242', '555555', '555,555']) {
       expect(text).not.toContain(sentinel)
     }
     // And the document is real: number, Thai labels, totals all present.

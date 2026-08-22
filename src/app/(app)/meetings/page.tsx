@@ -1,5 +1,7 @@
-// Meetings — logged against an account, optionally covering several projects
-// or none (A4). Hours are reported per account, never per project.
+// Meetings (Flow G) — logged against an account, optionally covering several
+// of its projects or none. Hours report per account, never per project (N3).
+// An optional expense can be captured in the same submit — the one moment
+// the receipt is still in the engineer's hand.
 import Link from 'next/link'
 import { requireSessionOrRedirect } from '@/lib/session'
 import { listMeetings } from '@/lib/data/meetings'
@@ -16,7 +18,7 @@ export default async function MeetingsPage() {
     listAccounts(),
     listProjects(),
   ])
-  const openProjects = projects.filter((p) => p.status === 'open')
+  const openProjects = projects.filter((p) => p.status === 'open' || p.status === 'won')
 
   return (
     <>
@@ -25,28 +27,37 @@ export default async function MeetingsPage() {
         <thead>
           <tr>
             <th>Date</th>
+            <th>Title</th>
             <th>Account</th>
-            <th>Duration</th>
+            <th>Mode</th>
+            <th>Hours</th>
             <th>Projects</th>
-            <th>Notes</th>
-            <th>By</th>
+            <th>Attendees</th>
           </tr>
         </thead>
         <tbody>
           {meetings.length === 0 && (
             <tr>
-              <td colSpan={6} className="muted">
+              <td colSpan={7} className="muted">
                 No meetings logged yet.
               </td>
             </tr>
           )}
           {meetings.map((m) => (
             <tr key={m.id}>
-              <td>{m.date}</td>
+              <td>{m.meetingDate}</td>
               <td>
-                <Link href={`/accounts/${m.accountId}`}>{m.accountName}</Link>
+                {m.title} {m.status !== 'completed' && <span className="badge">{m.status}</span>}
               </td>
-              <td>{m.durationMinutes != null ? `${m.durationMinutes} min` : '—'}</td>
+              <td>
+                {m.accountId ? (
+                  <Link href={`/accounts/${m.accountId}`}>{m.accountName}</Link>
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </td>
+              <td>{m.mode.replace('_', ' ')}</td>
+              <td>{m.durationHours ?? '—'}</td>
               <td>
                 {m.projects.map((p, i) => (
                   <span key={p.id}>
@@ -55,8 +66,7 @@ export default async function MeetingsPage() {
                   </span>
                 ))}
               </td>
-              <td>{m.notes}</td>
-              <td>{m.createdByName}</td>
+              <td className="muted">{m.attendees.map((a) => a.name).join(', ')}</td>
             </tr>
           ))}
         </tbody>
@@ -66,11 +76,13 @@ export default async function MeetingsPage() {
       <div className="card">
         <form className="stack" action={createMeetingAction}>
           <label>
-            Account
-            <select name="accountId" required defaultValue="">
-              <option value="" disabled>
-                Select an account…
-              </option>
+            Title
+            <input name="title" required maxLength={255} />
+          </label>
+          <label>
+            Account (optional — a relationship visit may have none)
+            <select name="accountId" defaultValue="">
+              <option value="">— no account —</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -80,11 +92,37 @@ export default async function MeetingsPage() {
           </label>
           <label>
             Date
-            <input name="date" type="date" required />
+            <input name="meetingDate" type="date" required />
           </label>
           <label>
-            Duration (minutes)
-            <input name="durationMinutes" type="number" min={0} max={1440} step={5} />
+            Start time
+            <input name="startTime" type="time" />
+          </label>
+          <label>
+            Duration (hours, e.g. 1.5)
+            <input name="durationHours" inputMode="decimal" pattern="\d{1,2}(\.\d{1,2})?" />
+          </label>
+          <label>
+            Mode
+            <select name="mode" defaultValue="client_site">
+              <option value="client_site">Client site</option>
+              <option value="office">Our office</option>
+              <option value="online">Online</option>
+              <option value="phone">Phone</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select name="status" defaultValue="completed">
+              <option value="completed">Completed</option>
+              <option value="planned">Planned</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="no_show">No-show</option>
+            </select>
+          </label>
+          <label>
+            Location
+            <input name="location" maxLength={255} />
           </label>
           <label>
             Projects covered (optional — must belong to the selected account)
@@ -97,9 +135,39 @@ export default async function MeetingsPage() {
             </select>
           </label>
           <label>
-            Notes
-            <textarea name="notes" rows={3} maxLength={5000} />
+            Agenda
+            <textarea name="agenda" rows={2} maxLength={5000} />
           </label>
+          <label>
+            Outcome
+            <textarea name="outcomeNotes" rows={3} maxLength={5000} />
+          </label>
+
+          <div
+            className="card"
+            style={{ background: 'var(--bg)', marginBottom: 0 }}
+          >
+            💰 Add expense? <span className="muted">(optional — leave blank to skip)</span>
+            <label>
+              Category
+              <select name="expenseCategory" defaultValue="">
+                <option value="">— skip —</option>
+                <option value="travel">Travel</option>
+                <option value="fuel">Fuel</option>
+                <option value="accommodation">Accommodation</option>
+                <option value="entertainment">Entertainment</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>
+              Amount (THB)
+              <input name="expenseAmount" inputMode="decimal" pattern="\d+(\.\d{1,2})?" />
+            </label>
+            <p className="muted" style={{ margin: '0.25rem 0 0' }}>
+              🔒 Only you and your manager can see this.
+            </p>
+          </div>
+
           <button>Log meeting</button>
         </form>
       </div>

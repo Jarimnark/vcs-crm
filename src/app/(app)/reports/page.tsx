@@ -1,6 +1,7 @@
 // Fixed reports over a report builder (ADR-0008). Phase 1 placeholder:
-// pipeline by progress step. Forecast reads from Project.expected_amount;
-// actuals read from Orders (ADR-0030) — never conflated.
+// pipeline by progress step, weighted per 00-product-concept §4.4:
+// COALESCE(quoted_value, expected_amount) × progress ÷ 100 over open
+// projects. Actuals read from Orders (ADR-0030) — never conflated.
 import { requireSessionOrRedirect } from '@/lib/session'
 import { listProjects, PROGRESS_STEPS } from '@/lib/data/projects'
 import { Decimal, toDecimal, formatMoney } from '@/lib/money'
@@ -11,18 +12,20 @@ export default async function ReportsPage() {
   await requireSessionOrRedirect()
   const projects = await listProjects()
 
-  const byStep = new Map<number, { count: number; expected: Decimal }>()
+  const byStep = new Map<number, { count: number; value: Decimal; weighted: Decimal }>()
   for (const p of projects) {
     if (p.status !== 'open') continue
-    const entry = byStep.get(p.progress) ?? { count: 0, expected: new Decimal(0) }
+    const entry =
+      byStep.get(p.progress) ?? { count: 0, value: new Decimal(0), weighted: new Decimal(0) }
     entry.count += 1
-    if (p.expectedAmount != null && p.currency === 'THB') {
-      entry.expected = entry.expected.plus(toDecimal(p.expectedAmount))
+    const basis = p.quotedValue ?? p.expectedAmount
+    if (basis != null && p.currency === 'THB') {
+      const v = toDecimal(basis)
+      entry.value = entry.value.plus(v)
+      entry.weighted = entry.weighted.plus(v.times(p.progress).div(100))
     }
     byStep.set(p.progress, entry)
   }
-
-  const steps = Object.keys(PROGRESS_STEPS).map(Number).sort((a, b) => a - b)
 
   return (
     <>
@@ -31,28 +34,29 @@ export default async function ReportsPage() {
       <table className="list">
         <thead>
           <tr>
-            <th>Step</th>
-            <th>Label</th>
+            <th>Progress</th>
             <th className="num">Projects</th>
-            <th className="num">Expected (THB)</th>
+            <th className="num">Value (THB)</th>
+            <th className="num">Weighted (THB)</th>
           </tr>
         </thead>
         <tbody>
-          {steps.map((s) => {
+          {PROGRESS_STEPS.map((s) => {
             const e = byStep.get(s)
             return (
               <tr key={s}>
                 <td>{s}%</td>
-                <td>{PROGRESS_STEPS[s]}</td>
                 <td className="num">{e?.count ?? 0}</td>
-                <td className="num">{e ? formatMoney(e.expected) : '0.00'}</td>
+                <td className="num">{e ? formatMoney(e.value) : '0.00'}</td>
+                <td className="num">{e ? formatMoney(e.weighted) : '0.00'}</td>
               </tr>
             )
           })}
         </tbody>
       </table>
       <p className="muted">
-        Forecast only — actual revenue is the sum of Orders and is reported separately.
+        Value = latest issued quotation when one exists, else the expected amount. Actual revenue
+        is the sum of Orders and is reported separately.
       </p>
     </>
   )

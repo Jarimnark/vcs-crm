@@ -4,7 +4,7 @@
 |---|---|
 | **Purpose** | Running state of the implementation: what exists, how it diverges from the spec, what is blocked, what happens next. Updated every working session. |
 | **Updated** | 2026-08-22 (evening — answers received) |
-| **Status** | ✅ **Plan approved (K1–K8) and B-questions answered — [ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md), [ADR-0047](docs/decisions/0047-quotation-counter-forward-reseed.md). Phases A → B → C cleared to start; Phase A implements `docs/02-data-model.md` directly.** Outstanding from client: **B1** (multi-line sample), **B5** (current counter value), **T1** (T&C wording). |
+| **Status** | ✅ **Phase A COMPLETE (2026-08-22)** — schema now implements `docs/02-data-model.md` directly (verified by migrating + seeding a real Postgres 16 and smoke-testing the constraints). Phase B (spec-correct flows: My Tasks dashboard, documents UI, attendee-rich meeting UI, account 360) and Phase C (quotation builder) are next. Outstanding from client: **B1** (multi-line sample), **B5** (current counter value), **T1** (T&C wording). |
 | **Spec sources** | `user-story/` (client, authoritative) → `docs/00,01,03,05` → ADRs |
 
 ---
@@ -22,7 +22,7 @@ Three causes, in order of impact:
 
 ## 2. Schema gap analysis — spec vs `src/db/schema.ts`
 
-> **2026-08-22:** the canonical schema is **`docs/02-data-model.md`** (present in the repo all along — see §1). The tables below were compiled against handoff Part B and remain accurate as a gap summary; 02 confirms them and adds the conventions/deltas now listed under Phase A in §5.
+> ✅ **CLOSED by Phase A (2026-08-22).** The schema now implements `docs/02-data-model.md` directly — all 19 domain tables, the VARCHAR+union convention, CHECK constraints, partial/GIN/trigram indexes, audit columns, `purchase_order` naming, counter on `company` with allocation at issue, and the ADR-0046/0047 amendments. Verified by migrating and seeding a real Postgres 16 and smoke-testing the constraints (lost-needs-reason, consumable-only interval, one-primary-per-account, forward-only counter). The tables below are kept as the historical record of what the scaffold got wrong.
 
 Severity: ❌ wrong (contradicts spec) · ⚠️ missing (spec field absent) · ✅ ok / deliberate.
 
@@ -202,3 +202,4 @@ Suggested order: **A → B1 → C (mechanics) → B2–B5 → C (finish on clien
 | 2026-08-22 | **This review.** Full re-read of user-story + design docs; gap analysis §2–3; plan §5. Waiting on K1–K8 |
 | 2026-08-22 | **Answers received.** B2–B4, B6–B11 answered; K1–K3, K5–K8 approved → [ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md). Docs updated (00, 05, README, this file). Still open: B1, B5 value, T1 T&C wording, K4 file check. Next session starts Phase A |
 | 2026-08-22 | **Correction: 02-data-model.md and 04-infrastructure.md were in the repo all along** — the "missing files" claim came from a truncated session-start listing (K4 resolved). 02 read in full and made canonical for Phase A; new deltas folded into the Phase A plan (no-pgEnum convention, counter on company + allocation at issue, `purchase_order` naming, document-level rounding, audit columns). KK's 700XX question → [ADR-0047](docs/decisions/0047-quotation-counter-forward-reseed.md): forward-only manual re-seed |
+| 2026-08-22 | **Phase A shipped.** Schema rewritten to 02 (19 tables, varchar+union, CHECKs, partial/GIN/trigram indexes, audit columns, `purchase_order`, counter on company, allocation at issue); DAL rewritten (expenses scope = sales_manager/ceo, projects with history+followup+competitor, tasks with status enum + complete-one-schedules-next chain, orders with void, meetings with attendees, admin with code+label picklists and the forward-only counter control); screens updated (multi-type accounts, full contact form, orders + follow-up controls on project page, meeting form with expense capture + privacy notice, six-kind picklist admin, company T&C + counter, user roles); template renamed to 02 field names + discount/VAT-rate rows + conditional T&C final page; totals rewritten (subtotal/discount/vat-rate, dual-entry discount derivation, precision-preserving margin chain); seed per 02 §13. **Migration reset — fresh 0000_init.sql: run `docker compose down -v` locally, then migrate + seed.** Verified: typecheck, lint, 32 tests incl. live render + T&C page 2/2, `next build`, real-Postgres migrate/seed/constraint smoke. Rounding interpretation recorded in totals.ts header. Next: Phase B |

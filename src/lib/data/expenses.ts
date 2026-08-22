@@ -1,47 +1,48 @@
 // The Data Access Layer for expenses — the ONLY module permitted to import
-// the `expenses` table (G1, ADR-0017, ADR-0039). It exports no unscoped
-// query: every function takes the caller's session and enforces the
-// visibility rule in the WHERE clause, not in the UI.
+// the `expense` table (02 §9a, G1, ADR-0017, ADR-0039). It exports no
+// unscoped query: every function takes the caller's session and enforces
+// visibility in the WHERE clause, not in the UI.
 //
-// Rule (ADR-0017): a user sees their own expenses; a manager sees all.
-// When a row is out of scope the answer is "not found", never "forbidden" —
-// don't confirm it exists.
+// Rule: a row is visible to incurred_by and to sales_manager / ceo roles.
+// Out of scope → "not found", never "forbidden" — don't confirm it exists.
 import 'server-only'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { expenses } from '@/db/schema'
-import { isManager, type AppSession } from '@/lib/session'
+import { expenses, type ExpenseCategory } from '@/db/schema'
+import { canSeeAllExpenses, type AppSession } from '@/lib/session'
 
 export interface ExpenseDto {
   id: number
-  projectId: number | null
-  incurredByUserId: string
-  date: string
+  expenseDate: string
+  category: ExpenseCategory
   amount: string
   currency: string
-  category: string | null
   note: string | null
+  projectId: number | null
+  meetingId: number | null
+  incurredByUserId: string
   hasReceipt: boolean
 }
 
-// DTO shape only (G2) — receiptPath stays server-side; the receipt is
-// fetched through the authenticated media route, which re-checks scope.
+// DTO shape only (G2) — receipt path stays server-side; the image is
+// fetched through the scoped receipt route, which re-checks visibility.
 function toDto(row: typeof expenses.$inferSelect): ExpenseDto {
   return {
     id: row.id,
-    projectId: row.projectId,
-    incurredByUserId: row.incurredByUserId,
-    date: row.date,
+    expenseDate: row.expenseDate,
+    category: row.category,
     amount: row.amount,
     currency: row.currency,
-    category: row.category,
     note: row.note,
-    hasReceipt: row.receiptPath != null,
+    projectId: row.projectId,
+    meetingId: row.meetingId,
+    incurredByUserId: row.incurredByUserId,
+    hasReceipt: row.receiptImage != null,
   }
 }
 
 function scopeFor(session: AppSession) {
-  return isManager(session) ? undefined : eq(expenses.incurredByUserId, session.userId)
+  return canSeeAllExpenses(session) ? undefined : eq(expenses.incurredByUserId, session.userId)
 }
 
 export async function listExpenses(session: AppSession): Promise<ExpenseDto[]> {
@@ -49,7 +50,7 @@ export async function listExpenses(session: AppSession): Promise<ExpenseDto[]> {
     .select()
     .from(expenses)
     .where(scopeFor(session))
-    .orderBy(desc(expenses.date), desc(expenses.id))
+    .orderBy(desc(expenses.expenseDate), desc(expenses.id))
   return rows.map(toDto)
 }
 
@@ -62,48 +63,50 @@ export async function getExpense(session: AppSession, id: number): Promise<Expen
   return rows[0] ? toDto(rows[0]) : null
 }
 
-/** Receipt path, scope-checked — used only by the media route. */
+/** Receipt path, scope-checked — used only by the media-serving route. */
 export async function getExpenseReceiptPath(
   session: AppSession,
   id: number,
 ): Promise<string | null> {
   const rows = await db
-    .select({ receiptPath: expenses.receiptPath })
+    .select({ receiptImage: expenses.receiptImage })
     .from(expenses)
     .where(and(eq(expenses.id, id), scopeFor(session)))
     .limit(1)
-  return rows[0]?.receiptPath ?? null
+  return rows[0]?.receiptImage ?? null
 }
 
 export interface NewExpense {
-  projectId?: number | null
-  date: string
+  expenseDate: string
+  category: ExpenseCategory
   amount: string
   currency?: string
-  category?: string | null
   note?: string | null
-  receiptPath?: string | null
+  projectId?: number | null
+  meetingId?: number | null
+  receiptImage?: string | null
 }
 
-/** An expense is always created as the caller's own. */
+/** An expense is always created as the caller's own — never client-supplied. */
 export async function createExpense(session: AppSession, input: NewExpense): Promise<ExpenseDto> {
   const rows = await db
     .insert(expenses)
     .values({
-      projectId: input.projectId ?? null,
-      incurredByUserId: session.userId, // never client-supplied
-      date: input.date,
+      expenseDate: input.expenseDate,
+      category: input.category,
       amount: input.amount,
       currency: input.currency ?? 'THB',
-      category: input.category ?? null,
       note: input.note ?? null,
-      receiptPath: input.receiptPath ?? null,
+      projectId: input.projectId ?? null,
+      meetingId: input.meetingId ?? null,
+      receiptImage: input.receiptImage ?? null,
+      incurredByUserId: session.userId,
     })
     .returning()
   return toDto(rows[0])
 }
 
-/** Update is scoped to the owner in the query itself — the boundary. */
+/** Update is scoped to the owner in the query itself — the boundary (G1). */
 export async function updateExpenseNote(
   session: AppSession,
   expenseId: number,
@@ -111,7 +114,7 @@ export async function updateExpenseNote(
 ): Promise<ExpenseDto | null> {
   const rows = await db
     .update(expenses)
-    .set({ note })
+    .set({ note, updatedAt: new Date() })
     .where(and(eq(expenses.id, expenseId), eq(expenses.incurredByUserId, session.userId)))
     .returning()
   return rows[0] ? toDto(rows[0]) : null

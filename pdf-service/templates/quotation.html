@@ -109,7 +109,7 @@
   <!-- The quotation number is lifted into the running header of every page,
        so a detached page stays identifiable (ADR-0031). Must stay in layout:
        display:none (or the hidden attribute) makes string-set not apply. -->
-  <span style="string-set: quo-no content(); visibility: hidden; font-size: 0; line-height: 0; display: block; height: 0;">{{ quotation.number }}</span>
+  <span style="string-set: quo-no content(); visibility: hidden; font-size: 0; line-height: 0; display: block; height: 0;">{{ quotation.quotationNo }}</span>
 
   <!-- Block 1: header -->
   <table class="doc-header">
@@ -122,7 +122,7 @@
         <div class="company-name-en">{{ company.nameEn }}</div>
         <div class="company-addr">{{ company.addressTh }}</div>
         <div class="company-addr">{{ company.addressEn }}</div>
-        <div class="company-addr">Tel: {{ company.tel }}{% if company.taxId %} · Tax ID: {{ company.taxId }}{% endif %}</div>
+        <div class="company-addr">Tel: {{ company.phone }}{% if company.taxId %} · Tax ID: {{ company.taxId }}{% endif %}</div>
       </td>
       <td style="width: 42mm; text-align: right;">
         <div class="title-box">ใบเสนอราคา<br>QUOTATION</div>
@@ -138,14 +138,14 @@
         <div><strong>{{ quotation.billToName }}</strong></div>
         <div style="white-space: pre-line">{{ quotation.billToAddress }}</div>
         {% if quotation.billToTaxId %}
-        <div>Tax ID: {{ quotation.billToTaxId }}{% if quotation.billToTaxBranch %} ({{ quotation.billToTaxBranch }}){% endif %}</div>
+        <div>Tax ID: {{ quotation.billToTaxId }}{% if quotation.billToBranch %} ({{ quotation.billToBranch }}){% endif %}</div>
         {% endif %}
       </td>
       <td>
         <div class="label">ถึง / Attention</div>
         <div><strong>{{ quotation.attentionName }}</strong></div>
         {% if quotation.attentionEmail %}<div>Email: {{ quotation.attentionEmail }}</div>{% endif %}
-        {% if quotation.attentionTel %}<div>Tel: {{ quotation.attentionTel }}</div>{% endif %}
+        {% if quotation.attentionPhone %}<div>Tel: {{ quotation.attentionPhone }}</div>{% endif %}
         {% if quotation.ccNames %}<div>cc: {{ quotation.ccNames | join(', ') }}</div>{% endif %}
       </td>
     </tr>
@@ -164,12 +164,12 @@
       <th>พนักงานขาย<br>Sales Person</th>
     </tr>
     <tr>
-      <td>{{ quotation.number }}</td>
+      <td>{{ quotation.quotationNo }}</td>
       <td>{{ quotation.dateText }}</td>
       <td>{% if quotation.validityText and quotation.validityText | length > MAXBAR %}See below{% else %}{{ quotation.validityText or '-' }}{% endif %}</td>
       <td>{% if quotation.deliveryDateText and quotation.deliveryDateText | length > MAXBAR %}See below{% else %}{{ quotation.deliveryDateText or '-' }}{% endif %}</td>
       <td>{% if quotation.paymentTermText and quotation.paymentTermText | length > MAXBAR %}See below{% else %}{{ quotation.paymentTermText or '-' }}{% endif %}</td>
-      <td>{{ quotation.salespersonName }}{% if quotation.salespersonPhone %} / {{ quotation.salespersonPhone }}{% endif %}</td>
+      <td>{{ quotation.salespersonName }}{% if quotation.salespersonMobile %} / {{ quotation.salespersonMobile }}{% endif %}</td>
     </tr>
   </table>
 
@@ -191,17 +191,17 @@
         <td class="ctr">{{ line.sequence }}</td>
         <td>
           <span class="item-code">{{ line.itemCode }}</span> {{ line.itemName }}
-          {% if line.description %}<div>{{ line.description }}</div>{% endif %}
+          {% if line.lineNotes %}<div>{{ line.lineNotes }}</div>{% endif %}
           {% if line.components %}
           <div class="components">
             {% for c in line.components %}
-            {{ c.quantityText }} x {{ c.code }} {{ c.name }}<br>
+            {{ c.quantityText }} x {{ c.itemCode }} {{ c.itemName }}<br>
             {% endfor %}
           </div>
           {% endif %}
           {% if line.imageDataUri %}<img class="line-image" src="{{ line.imageDataUri }}" alt="">{% endif %}
         </td>
-        <td class="ctr">{{ line.quantityText }} {{ line.unit }}</td>
+        <td class="ctr">{{ line.quantityText }} {{ line.unit }}{% if line.moqNote %}<br><span style="font-size: 7.5pt; color: #555">{{ line.moqNote }}</span>{% endif %}</td>
         <td class="num">{{ line.unitPriceText }}</td>
         <td class="ctr">{{ line.discountText }}</td>
         <td class="num">{{ line.amountText }}</td>
@@ -223,21 +223,28 @@
           {% if quotation.incoterm %}<div><span class="t-label">Incoterm</span> : {{ quotation.incoterm }}</div>{% endif %}
           {% if quotation.paymentTermText %}<div><span class="t-label">Payment Term</span> : {{ quotation.paymentTermText }}</div>{% endif %}
           {% if quotation.countryOfOrigin %}<div><span class="t-label">Country of Origin</span> : {{ quotation.countryOfOrigin }}</div>{% endif %}
-          {% if quotation.regulatoryNote %}<div style="margin-top: 2mm">{{ quotation.regulatoryNote }}</div>{% endif %}
+          {% if quotation.whtNote %}<div style="margin-top: 2mm">{{ quotation.whtNote }}</div>{% endif %}
+          {% if quotation.remarks %}<div style="margin-top: 2mm">{{ quotation.remarks }}</div>{% endif %}
           <div class="thank-you">
-            {% if company.thankYouTextTh %}{{ company.thankYouTextTh }}<br>{% endif %}
-            {% if company.thankYouTextEn %}{{ company.thankYouTextEn }}{% endif %}
+            {% if company.footerTextTh %}{{ company.footerTextTh }}<br>{% endif %}
+            {% if company.footerTextEn %}{{ company.footerTextEn }}{% endif %}
           </div>
         </td>
         <td class="totals-cell">
           <table class="totals">
             <tr>
               <td>รวมเงิน / Total</td>
-              <td class="num">{{ quotation.totalText }}</td>
+              <td class="num">{{ quotation.subtotalText }}</td>
             </tr>
+            {% if quotation.discountTotalText %}
+            <tr>
+              <td>ส่วนลด / Discount</td>
+              <td class="num">-{{ quotation.discountTotalText }}</td>
+            </tr>
+            {% endif %}
             {% if quotation.vatApplied %}
             <tr>
-              <td>ภาษีมูลค่าเพิ่ม / VAT 7%</td>
+              <td>ภาษีมูลค่าเพิ่ม / VAT {{ quotation.vatRateText }}%</td>
               <td class="num">{{ quotation.vatText }}</td>
             </tr>
             {% endif %}
@@ -250,6 +257,18 @@
       </tr>
     </table>
   </div>
+
+  {% if company.termsText %}
+  <!-- ADR-0046 B2: standard terms & conditions print as their own final
+       page. Company-level content (T1) — the page exists only when set, so
+       the current samples (no T&C) stay reproducible. -->
+  <div style="page-break-before: always; font-size: 9pt;">
+    <div style="font-weight: bold; font-size: 11pt; margin-bottom: 3mm;">
+      เงื่อนไขและข้อตกลง / Terms &amp; Conditions
+    </div>
+    <div style="white-space: pre-line">{{ company.termsText }}</div>
+  </div>
+  {% endif %}
 
 </body>
 </html>

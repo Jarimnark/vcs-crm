@@ -20,7 +20,7 @@ function toAppSession(s: NonNullable<Awaited<ReturnType<typeof auth.api.getSessi
     userId: u.id,
     name: u.name,
     email: u.email,
-    role: u.role ?? 'sales',
+    role: u.role ?? 'sales_engineer',
     phoneMobile: u.phoneMobile ?? null,
   }
 }
@@ -43,7 +43,15 @@ export async function requireSessionOrRedirect(): Promise<AppSession> {
   return toAppSession(session)
 }
 
-/** Managers see all expenses; everyone else only their own (ADR-0017). */
+/**
+ * The expense visibility rule (ADR-0017, 02 §9a): a row is visible to the
+ * user who incurred it and to sales_manager / ceo roles — nobody else.
+ */
+export function canSeeAllExpenses(session: AppSession): boolean {
+  return session.role === 'sales_manager' || session.role === 'ceo'
+}
+
+/** User administration is manager work (docs/01 §2). */
 export function isManager(session: AppSession): boolean {
-  return session.role === 'manager'
+  return session.role === 'sales_manager' || session.role === 'ceo'
 }

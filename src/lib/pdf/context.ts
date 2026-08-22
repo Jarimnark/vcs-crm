@@ -1,77 +1,89 @@
-// The cost-leak whitelist — the ONLY path from data to the PDF render service
-// (docs/03-tech-stack.md §4.2, ADR-0031).
+// The cost-leak whitelist — the ONLY path from data to the PDF render
+// service (docs/02-data-model.md §10, docs/03 §4.2, ADR-0031).
 //
-// The client calls a cost column on a client-facing quotation "a serious
-// commercial problem" and specifies the mitigation: print from an approved
-// field whitelist, not by hiding columns. The context is built from explicit
-// allowlists, so cost fields are never in the payload — a template referencing
-// unit_cost has nothing to resolve. The failure mode is "renders blank",
-// not "leaks silently".
-//
-// The sentinel test (tests/pdf-context.test.ts and the CI integration test)
-// is the actual guarantee. Adding a field here means deliberately extending
-// a whitelist, and the field names below must never include cost or margin.
+// unit_cost, cost_currency, fx_rate_cost_to_selling, line_cost, line_margin,
+// total_cost and total_margin must never reach the exported PDF. The context
+// is built from explicit allowlists, so cost fields are never in the
+// payload — a template referencing them has nothing to resolve. The failure
+// mode is "renders blank", not "leaks silently". The sentinel tests
+// (tests/pdf-context.test.ts, tests/pdf-render.test.ts) are the guarantee.
 import { formatMoney } from '@/lib/money'
 
-// --- Allowlists ------------------------------------------------------------
+// --- Allowlists (02 §10) ---------------------------------------------------
 
 export const PDF_COMPANY_FIELDS = [
   'nameTh',
   'nameEn',
   'addressTh',
   'addressEn',
-  'tel',
+  'phone',
   'taxId',
   'logoDataUri',
-  'thankYouTextTh',
-  'thankYouTextEn',
+  'footerTextTh',
+  'footerTextEn',
+  'termsText', // standard T&C — the page-2 content (ADR-0046 B2, T1)
 ] as const
 
 export const PDF_QUOTATION_FIELDS = [
-  'number',
+  'quotationNo',
   'revisionLabel',
   'dateText',
+  'billToName',
+  'billToAddress',
+  'billToTaxId',
+  'billToBranch',
   'validityText',
   'deliveryDateText',
   'paymentTermText',
-  'leadTimeText',
-  'regulatoryNote',
   'currency',
   'currencyLabel',
   'incoterm',
   'countryOfOrigin',
+  'leadTimeText',
+  'remarks',
+  'whtNote',
   'vatApplied',
-  'billToName',
-  'billToAddress',
-  'billToTaxId',
-  'billToTaxBranch',
-  'attentionName',
-  'attentionEmail',
-  'attentionTel',
-  'ccNames',
-  'salespersonName',
-  'salespersonPhone',
-  'totalText',
+  'vatRateText',
+  'subtotalText',
+  'discountTotalText',
   'vatText',
   'grandTotalText',
+  'salespersonName',
+  'salespersonMobile',
+  'attentionName',
+  'attentionEmail',
+  'attentionPhone',
+  'ccNames',
 ] as const
 
 export const PDF_LINE_FIELDS = [
   'sequence',
   'itemCode',
   'itemName',
-  'description',
   'quantityText',
   'unit',
+  'moqNote',
   'unitPriceText',
   'discountText',
   'amountText',
   'imageDataUri',
   'components',
+  'lineNotes',
 ] as const
 
-// Compile-time guard: these names must never appear in any allowlist.
-type Forbidden = 'unitCost' | 'unit_cost' | 'costCurrency' | 'cost_currency' | 'fxRate' | 'margin'
+// Compile-time guard: cost/margin/fx names must never enter any allowlist.
+type Forbidden =
+  | 'unitCost'
+  | 'unit_cost'
+  | 'costCurrency'
+  | 'cost_currency'
+  | 'fxRate'
+  | 'fxRateCostToSelling'
+  | 'lineCost'
+  | 'lineMargin'
+  | 'totalCost'
+  | 'totalMargin'
+  | 'margin'
 type AssertNoCost<T extends readonly string[]> = Extract<T[number], Forbidden> extends never
   ? true
   : never
@@ -89,11 +101,12 @@ export interface CompanyRow {
   nameEn: string
   addressTh: string
   addressEn: string
-  tel: string
+  phone: string
   taxId?: string | null
   logoDataUri?: string | null
-  thankYouTextTh?: string | null
-  thankYouTextEn?: string | null
+  footerTextTh?: string | null
+  footerTextEn?: string | null
+  termsText?: string | null
   [key: string]: unknown
 }
 
@@ -101,45 +114,49 @@ export interface QuotationLineRow {
   sequence: number
   itemCode?: string | null
   itemName: string
-  description?: string | null
   quantity: string
-  unit: string
+  unit?: string | null
+  moqNote?: string | null
   unitPrice: string
   discountType?: 'amount' | 'percent' | null
   discountValue?: string | null
   amount: string
   imageDataUri?: string | null
-  components?: { quantity: string; code?: string | null; name: string }[]
+  lineNotes?: string | null
+  components?: { quantity: string; itemCode?: string | null; itemName: string }[]
   // Internal-only fields may be present on the row; the whitelist drops them.
   [key: string]: unknown
 }
 
 export interface QuotationRow {
-  number: string
+  quotationNo: string | null
   revision: number
-  date: string // ISO
-  validityText?: string | null
-  deliveryDateText?: string | null
-  paymentTermText?: string | null
-  leadTimeText?: string | null
-  regulatoryNote?: string | null
-  currency: string
-  incoterm?: string | null
-  countryOfOrigin?: string | null
-  vatApplied: boolean
+  quotationDate: string // ISO
   billToName?: string | null
   billToAddress?: string | null
   billToTaxId?: string | null
-  billToTaxBranch?: string | null
+  billToBranch?: string | null
+  validityText?: string | null
+  deliveryDateText?: string | null
+  paymentTermText?: string | null
+  currency: string
+  incoterm?: string | null
+  countryOfOrigin?: string | null
+  leadTimeText?: string | null
+  remarks?: string | null
+  whtNote?: string | null
+  vatApplied: boolean
+  vatRate: string
+  subtotal: string
+  discountTotal: string
+  vatAmount: string
+  grandTotal: string
+  salespersonName?: string | null
+  salespersonMobile?: string | null
   attentionName?: string | null
   attentionEmail?: string | null
-  attentionTel?: string | null
+  attentionPhone?: string | null
   ccNames?: string[]
-  salespersonName?: string | null
-  salespersonPhone?: string | null
-  totalAmount?: string | null
-  vatAmount?: string | null
-  grandTotal?: string | null
   [key: string]: unknown
 }
 
@@ -174,10 +191,24 @@ const CURRENCY_LABELS: Record<string, string> = {
   EUR: 'Euro',
 }
 
-/** `15/07/2026` — one enforced, unambiguous format (ADR-0031). */
+/** `15/08/2026` — one enforced, unambiguous format (ADR-0031). */
 export function formatQuotationDate(isoDate: string): string {
   const [y, m, d] = isoDate.slice(0, 10).split('-')
   return `${d}/${m}/${y}`
+}
+
+function formatQuantity(quantity: string): string {
+  return quantity.replace(/\.0*$|(\.\d*?)0+$/, '$1')
+}
+
+function formatVatRate(rate: string): string {
+  return formatQuantity(rate) // "7.00" → "7"
+}
+
+function formatDiscount(type?: 'amount' | 'percent' | null, value?: string | null): string {
+  if (!type || value == null) return '-' // samples print '-' when none
+  if (type === 'percent') return `${formatQuantity(value)}%`
+  return formatMoney(value)
 }
 
 /**
@@ -185,19 +216,23 @@ export function formatQuotationDate(isoDate: string): string {
  * rows, so a template referencing unit_cost has nothing to resolve.
  */
 export function buildQuotationPdfContext(q: QuotationWithLines): PdfContext {
-  const displayNumber =
-    q.quotation.revision > 0 ? `${q.quotation.number}-R${q.quotation.revision}` : q.quotation.number
+  const baseNo = q.quotation.quotationNo ?? 'DRAFT'
+  // ADR-0046 B4: revisions are a suffix. Revision 1 is the original.
+  const displayNo = q.quotation.revision > 1 ? `${baseNo}-R${q.quotation.revision}` : baseNo
 
   const quotationView: Record<string, unknown> = {
     ...q.quotation,
-    number: displayNumber,
-    revisionLabel: q.quotation.revision > 0 ? `R${q.quotation.revision}` : null,
-    dateText: formatQuotationDate(q.quotation.date),
+    quotationNo: displayNo,
+    revisionLabel: q.quotation.revision > 1 ? `R${q.quotation.revision}` : null,
+    dateText: formatQuotationDate(q.quotation.quotationDate),
     currencyLabel: CURRENCY_LABELS[q.quotation.currency] ?? q.quotation.currency,
     ccNames: q.quotation.ccNames ?? [],
-    totalText: q.quotation.totalAmount != null ? formatMoney(q.quotation.totalAmount) : null,
-    vatText: q.quotation.vatAmount != null ? formatMoney(q.quotation.vatAmount) : null,
-    grandTotalText: q.quotation.grandTotal != null ? formatMoney(q.quotation.grandTotal) : null,
+    vatRateText: formatVatRate(q.quotation.vatRate),
+    subtotalText: formatMoney(q.quotation.subtotal),
+    discountTotalText:
+      q.quotation.discountTotal !== '0.00' ? formatMoney(q.quotation.discountTotal) : null,
+    vatText: formatMoney(q.quotation.vatAmount),
+    grandTotalText: formatMoney(q.quotation.grandTotal),
   }
 
   const lines = [...q.lines]
@@ -206,14 +241,14 @@ export function buildQuotationPdfContext(q: QuotationWithLines): PdfContext {
       const view: Record<string, unknown> = {
         ...l,
         quantityText: formatQuantity(l.quantity),
+        unit: l.unit ?? '',
         unitPriceText: formatMoney(l.unitPrice),
-        // Prints '-' when there is no discount, per the samples.
         discountText: formatDiscount(l.discountType, l.discountValue),
         amountText: formatMoney(l.amount),
         components: (l.components ?? []).map((c) => ({
           quantityText: formatQuantity(c.quantity),
-          code: c.code ?? '',
-          name: c.name,
+          itemCode: c.itemCode ?? '',
+          itemName: c.itemName,
         })),
       }
       return pick(view, PDF_LINE_FIELDS)
@@ -224,18 +259,4 @@ export function buildQuotationPdfContext(q: QuotationWithLines): PdfContext {
     quotation: pick(quotationView, PDF_QUOTATION_FIELDS),
     lines,
   }
-}
-
-function formatQuantity(quantity: string): string {
-  // NUMERIC(15,3) string → trim trailing zeros: "13.000" → "13"
-  return quantity.replace(/\.0*$|(\.\d*?)0+$/, '$1')
-}
-
-function formatDiscount(
-  type?: 'amount' | 'percent' | null,
-  value?: string | null,
-): string {
-  if (!type || value == null) return '-'
-  if (type === 'percent') return `${formatQuantity(value)}%`
-  return formatMoney(value)
 }

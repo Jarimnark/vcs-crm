@@ -1,11 +1,13 @@
-// Users — create, deactivate, role, phone_mobile (printed as the quotation
-// salesperson). Creation goes through Better Auth (scripts/seed.ts or a
-// manager using the sign-up API with ALLOW_SIGNUP=true).
+// Users — create, deactivate, role, phone_mobile (prints as the quotation
+// salesperson). Roles: ceo / finance / sales_engineer / sales_manager —
+// stored, not enforced in Phase 1 except expenses (02 §3.4).
 import { requireSessionOrRedirect, isManager } from '@/lib/session'
 import { listUsers } from '@/lib/data/admin'
-import { setUserActiveAction } from '../actions'
+import { setUserActiveAction, setUserRoleAction } from '../actions'
 
 export const dynamic = 'force-dynamic'
+
+const ROLES = ['sales_engineer', 'sales_manager', 'finance', 'ceo'] as const
 
 export default async function UsersPage() {
   const session = await requireSessionOrRedirect()
@@ -31,7 +33,23 @@ export default async function UsersPage() {
             <tr key={u.id}>
               <td>{u.name}</td>
               <td>{u.email}</td>
-              <td>{u.role}</td>
+              <td>
+                {manager && u.id !== session.userId ? (
+                  <form action={setUserRoleAction} style={{ display: 'flex', gap: '0.25rem' }}>
+                    <input type="hidden" name="id" value={u.id} />
+                    <select name="role" defaultValue={u.role}>
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r.replace('_', ' ')}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="quiet">Set</button>
+                  </form>
+                ) : (
+                  u.role.replace('_', ' ')
+                )}
+              </td>
               <td>{u.phoneMobile}</td>
               <td>{u.active ? 'yes' : 'no'}</td>
               {manager && (

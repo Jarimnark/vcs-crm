@@ -1,7 +1,8 @@
-// One generic editor for all seven picklist kinds — the single `picklist`
-// table with a `kind` column is why this is one screen, not seven.
+// One generic editor for all picklist kinds — six now: lost_reason dropped,
+// free text instead (ADR-0046 B9).
 import { requireSessionOrRedirect } from '@/lib/session'
-import { listPicklist, PICKLIST_KINDS, type PicklistKind } from '@/lib/data/admin'
+import { listPicklist, PICKLIST_KINDS } from '@/lib/data/admin'
+import type { PicklistKind } from '@/db/schema'
 import { addPicklistItemAction, setPicklistActiveAction } from '../actions'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,6 @@ const LABELS: Record<PicklistKind, string> = {
   document_type: 'Document types',
   task_type: 'Task types',
   lead_source: 'Lead sources',
-  lost_reason: 'Lost reasons',
 }
 
 export default async function PicklistsPage({
@@ -23,7 +23,7 @@ export default async function PicklistsPage({
 }) {
   await requireSessionOrRedirect()
   const { kind: rawKind } = await searchParams
-  const kind: PicklistKind = PICKLIST_KINDS.includes(rawKind as PicklistKind)
+  const kind: PicklistKind = (PICKLIST_KINDS as readonly string[]).includes(rawKind ?? '')
     ? (rawKind as PicklistKind)
     : 'incoterm'
   const items = await listPicklist(kind)
@@ -42,7 +42,8 @@ export default async function PicklistsPage({
       <table className="list">
         <thead>
           <tr>
-            <th>Value</th>
+            <th>Code</th>
+            <th>Label</th>
             <th>Active</th>
             <th></th>
           </tr>
@@ -50,20 +51,21 @@ export default async function PicklistsPage({
         <tbody>
           {items.length === 0 && (
             <tr>
-              <td colSpan={3} className="muted">
-                Empty — seed values below.
+              <td colSpan={4} className="muted">
+                Empty — add values below.
               </td>
             </tr>
           )}
           {items.map((i) => (
             <tr key={i.id}>
-              <td>{i.value}</td>
-              <td>{i.active ? 'yes' : 'no'}</td>
+              <td>{i.code}</td>
+              <td>{i.label}</td>
+              <td>{i.isActive ? 'yes' : 'no'}</td>
               <td>
                 <form action={setPicklistActiveAction}>
                   <input type="hidden" name="id" value={i.id} />
-                  <input type="hidden" name="active" value={String(!i.active)} />
-                  <button className="quiet">{i.active ? 'Deactivate' : 'Activate'}</button>
+                  <input type="hidden" name="active" value={String(!i.isActive)} />
+                  <button className="quiet">{i.isActive ? 'Retire' : 'Activate'}</button>
                 </form>
               </td>
             </tr>
@@ -76,8 +78,12 @@ export default async function PicklistsPage({
         <form className="stack" action={addPicklistItemAction}>
           <input type="hidden" name="kind" value={kind} />
           <label>
-            Value
-            <input name="value" required maxLength={200} />
+            Label
+            <input name="label" required maxLength={255} />
+          </label>
+          <label>
+            Code (optional — defaults to the label)
+            <input name="code" maxLength={50} />
           </label>
           <button>Add</button>
         </form>

@@ -5,6 +5,14 @@ import { createAccountAction } from './actions'
 
 export const dynamic = 'force-dynamic'
 
+const TYPE_LABELS: Record<string, string> = {
+  client: 'Client',
+  supplier: 'Supplier',
+  manufacturer: 'Manufacturer',
+  service_provider: 'Service provider',
+  logistics: 'Logistics',
+}
+
 export default async function AccountsPage() {
   await requireSessionOrRedirect()
   const accounts = await listAccounts()
@@ -16,14 +24,15 @@ export default async function AccountsPage() {
         <thead>
           <tr>
             <th>Name</th>
-            <th>Type</th>
+            <th>Types</th>
+            <th>Status</th>
             <th>Tax ID</th>
           </tr>
         </thead>
         <tbody>
           {accounts.length === 0 && (
             <tr>
-              <td colSpan={3} className="muted">
+              <td colSpan={4} className="muted">
                 No accounts yet.
               </td>
             </tr>
@@ -33,7 +42,14 @@ export default async function AccountsPage() {
               <td>
                 <Link href={`/accounts/${a.id}`}>{a.name}</Link>
               </td>
-              <td>{a.type}</td>
+              <td>
+                {a.types.map((t) => (
+                  <span key={t} className="badge" style={{ marginRight: '0.25rem' }}>
+                    {TYPE_LABELS[t] ?? t}
+                  </span>
+                ))}
+              </td>
+              <td>{a.status}</td>
               <td>
                 {a.taxId}
                 {a.taxBranch ? ` (${a.taxBranch})` : ''}
@@ -48,16 +64,25 @@ export default async function AccountsPage() {
         <form className="stack" action={createAccountAction}>
           <label>
             Name
-            <input name="name" required maxLength={300} />
+            <input name="name" required maxLength={255} />
           </label>
+          <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+            <span className="muted" style={{ fontSize: '0.85rem' }}>
+              Types — an account plays as many roles as it plays
+            </span>
+            {Object.entries(TYPE_LABELS).map(([value, label]) => (
+              <label
+                key={value}
+                style={{ flexDirection: 'row' as const, alignItems: 'center', gap: '0.5rem' }}
+              >
+                <input type="checkbox" name="types" value={value} defaultChecked={value === 'client'} />
+                {label}
+              </label>
+            ))}
+          </fieldset>
           <label>
-            Type
-            <select name="type" defaultValue="customer">
-              <option value="customer">Customer</option>
-              <option value="principal">Principal</option>
-              <option value="partner">Partner</option>
-              <option value="other">Other</option>
-            </select>
+            Industry
+            <input name="industry" maxLength={100} />
           </label>
           <label>
             Address
@@ -65,7 +90,7 @@ export default async function AccountsPage() {
           </label>
           <label>
             Tax ID
-            <input name="taxId" maxLength={50} />
+            <input name="taxId" maxLength={20} />
           </label>
           <label>
             Branch designation (e.g. Head Office)

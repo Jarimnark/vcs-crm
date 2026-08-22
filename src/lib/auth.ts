@@ -31,7 +31,9 @@ export const auth = betterAuth({
   },
   user: {
     additionalFields: {
-      role: { type: 'string', defaultValue: 'sales', input: false },
+      // ceo / finance / sales_engineer / sales_manager — stored, not
+      // enforced in Phase 1 except for expenses (02 §3.4, ADR-0006).
+      role: { type: 'string', defaultValue: 'sales_engineer', input: false },
       phoneMobile: { type: 'string', required: false },
       active: { type: 'boolean', defaultValue: true, input: false },
     },

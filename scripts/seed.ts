@@ -44,10 +44,14 @@ const SEED_PICKLISTS: Record<string, { code: string; label: string }[]> = {
 }
 
 async function main() {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL ?? 'postgres://vcs:vcs@localhost:5432/vcs_crm',
-    max: 1,
-  })
+  if (!process.env.DATABASE_URL) {
+    throw new Error(
+      'DATABASE_URL is not set. Create local.env (or .env) in the repo root with e.g.\n' +
+        '  DATABASE_URL=postgres://vcs:vcs@localhost:8888/vcs_crm\n' +
+        '(8888 is the port docker-compose.yml publishes Postgres on.)',
+    )
+  }
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 })
   const db = drizzle(pool, { schema })
 
   // Company singleton — placeholder values; edit in Admin → Company.

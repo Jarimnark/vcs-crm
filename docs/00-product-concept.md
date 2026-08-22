@@ -247,26 +247,20 @@ Consolidated and deduplicated from the four client documents. **Blocking** means
 
 > **See [`05-build-readiness.md`](05-build-readiness.md) for these sorted by what they actually block.** The short version: only **B1 and B2** block the critical path, and roughly 60% of Phase 1 — accounts, people, projects, tasks, meetings, admin, auth — needs no client answer at all.
 
-### Blocking — quotation output
+### Blocking — quotation output and project model
 
-| # | Question | Source |
+> ✅ **Answered 2026-08-22, except B1 and B5 — see [ADR-0046](decisions/0046-client-answers-quotation-and-project-model.md).**
+> B2: page 2 exists, standard T&C move there (T&C wording still needed — item **T1**).
+> B3: discount entered as amount **or** percent, system derives the other.
+> B4: suffix `-R2`. B6: terms per quotation. B7: status set by hand.
+> B8: no progress labels — plain percentages. B9: no lost-reason codes — free text stays.
+> B10: 100 is set manually. B11: cost currencies never mixed.
+
+| # | Still open | Source |
 |---|---|---|
-| **B1** | **A multi-line quotation sample** (three or more lines). Both samples have one line, so row spacing, terms-block placement, and page-break behaviour are all untested — and this is the highest-risk component | Q3, D-A1 |
-| **B2** | **Is there a page 2 today?** Neither sample shows bank details or terms and conditions | Q4, D8 |
-| **B3** | **Discount format** — amount or percentage? Both samples show `-` | Q8, D5 |
-| **B4** | **Revision numbering** — suffix (`QUO69054-R2`) or a new number? *Suffix recommended* | Q6, D6 |
-| **B5** | **Current quotation counter value.** The sequence must continue from VCS's existing numbering (high 69000s), not restart | [ADR-0031](decisions/0031-quotation-template-and-numbering.md) |
-| **B6** | **Terms per quotation, or per line?** Header-level is confirmed, but untested — a quotation with three origins and three lead times has never been seen | Q1, D2 |
-
-### Blocking — project model
-
-| # | Question | Source |
-|---|---|---|
-| **B7** | **Do progress and status interact?** Does status become Won automatically at 90 (consumable) / 100 (others), or is it set by hand? Two fields kept in agreement manually will drift | [ADR-0028](decisions/0028-progress-and-status-are-independent.md) |
-| **B8** | **Progress labels for 40, 60, 80** — inferred, not stated | Q2, D13 |
-| **B9** | **Lost reason codes** — final list. Suggested: price · lead time · competitor · client cancelled · declined by us (margin) · declined by us (technical) · other | Q4, D14 |
-| **B10** | **What triggers "repeat ordering established" (100)?** The system cannot detect it. Who decides, on what basis? | [ADR-0029](decisions/0029-project-types-and-repeat-orders.md) |
-| **B11** | **Does a quotation ever mix two cost currencies?** The FX rate is header-level, so all line costs share one ([ADR-0040](decisions/0040-fx-rate-at-quotation-level.md)) | Quotation schema |
+| **B1** | **A multi-line quotation sample** (three or more lines) — validates row spacing, terms placement and page breaks | Q3, D-A1 |
+| **B5** | **Current quotation counter value** — the sequence continues from VCS's existing numbering (high 69000s). Blocks launch seeding, not build | [ADR-0031](decisions/0031-quotation-template-and-numbering.md), ADR-0046 |
+| **T1** | **The standard terms & conditions wording** for the new page 2 | ADR-0046 (B2) |
 
 ### Needs an answer before launch
 

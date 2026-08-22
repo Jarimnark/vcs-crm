@@ -64,22 +64,15 @@ Every design decision — product, infrastructure, or code — gets a record in 
 
 ## What's blocking
 
-**Before the quotation build** — the largest and riskiest component:
+> ✅ **Most blocking questions were answered on 2026-08-22 — [ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md).** Page 2 carries standard T&C; discount is dual-entry (amount ⇄ %); revisions use `-R2`; terms sit on the quotation; status and progress-100 are set by hand; no progress labels; no lost-reason codes; cost currencies never mix.
 
-1. **A multi-line quotation sample** (three or more lines). Both client samples have one line, so row spacing, terms placement, and page breaks are all untested. *The single most valuable input outstanding.*
-2. **Is there a page 2 today?** Neither sample shows bank details or terms and conditions.
-3. **Discount format** — amount or percentage?
-4. **Revision numbering** — suffix (`QUO69054-R2`) or a new number?
-5. **The current quotation counter value** — numbering must continue from VCS's existing sequence (high 69000s), not restart.
+Still outstanding from the client — none block the build:
 
-**Before the project model is built:**
+1. **A multi-line quotation sample** (B1) — validates row spacing and page breaks. *The most valuable input outstanding.*
+2. **The current quotation counter value** (B5) — numbering continues VCS's existing sequence (high 69000s); needed before launch seeding.
+3. **The standard terms & conditions wording** (T1) for the new page 2.
 
-6. **Do progress and status interact?** Does status become Won automatically at 90 / 100, or is it set by hand?
-7. **Progress labels for 40, 60, 80** — inferred, not stated.
-8. **Lost reason codes** — final list.
-9. **What triggers "repeat ordering established" (100)?** The system cannot detect it.
-
-Ten further questions need answers before launch but not before build — see §10 of the product concept.
+Implementation state, gaps, and the phased plan live in [`CONTEXT.md`](CONTEXT.md).
 
 ## First task, before any screen
 

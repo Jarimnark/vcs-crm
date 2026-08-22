@@ -11,17 +11,25 @@
 
 ## 0. The short version
 
-**You are not blocked on eleven questions. You are blocked on two, and only for one part of the app.**
+> **Update 2026-08-22 — most of this page is resolved.** B2–B4 and B6–B11
+> were answered ([ADR-0046](decisions/0046-client-answers-quotation-and-project-model.md)):
+> T&C on a page 2, discount enterable as amount **or** percent (system
+> derives the other), `-R2` suffix, terms per quotation, status by hand, no
+> progress labels, lost reason free-text (no codes), progress 100 manual,
+> cost currencies never mixed. The PDF prototype has also passed its
+> checklist (ADR-0045), so nothing blocks the build.
+>
+> **Still outstanding from the client:** **B1** (a multi-line sample — the
+> most valuable input, validates page breaks), **B5** (the current counter
+> value — blocks launch seeding, not build), and **T1** (the standard
+> terms-&-conditions wording for the new page 2).
 
 | | |
 |---|---|
-| **Blocks the PDF prototype — which is task one** | **B1, B2** |
-| Blocks the quotation builder's arithmetic | B3, B5, B6 |
-| Blocks the project model | B7 |
-| Blocks nothing yet — decide during the build | B4, B8, B9, B10, B11 |
-| **Blocks nothing at all** | Accounts, people, projects, tasks, meetings, documents, admin screens, auth — **roughly 60% of Phase 1** |
-
-So: **chase B1 and B2 from the client today**, and build the non-quotation half while you wait. That is the whole answer to sequencing.
+| ~~Blocks the PDF prototype~~ | ✅ prototype passed; B1 still wanted for validation |
+| ~~Blocks the quotation builder~~ | ✅ B3/B6 answered; B5 blocks **launch seeding** only |
+| ~~Blocks the project model~~ | ✅ B7 answered: by hand |
+| Current work | Schema alignment + spec-correct flows + quotation builder — see `CONTEXT.md` |
 
 ---
 
@@ -50,35 +58,23 @@ Mitigation is cheap: the droplet is $6/month with per-second billing, so it can 
 
 ## 2. Questions for the client
 
-### 2.1 Blocking — get these two first
+### 2.1 – 2.3 Blocking questions — ✅ answered 2026-08-22, except B1 and B5
 
-These block the PDF prototype, and the PDF prototype blocks everything else ([`03-tech-stack.md`](03-tech-stack.md) §3.3).
+Full record: [ADR-0046](decisions/0046-client-answers-quotation-and-project-model.md).
 
-| # | Question | Why it blocks |
+| # | Question | Answer |
 |---|---|---|
-| **B1** | **A multi-line quotation sample** — three or more lines, ideally spanning two pages | Both samples you have carry **one line**. Row spacing, terms-block placement and page-break behaviour are entirely untested, and page breaks are the highest-risk part of the highest-risk component |
-| **B2** | **Is there a page 2 today?** Bank details, terms and conditions, anything after the totals | Neither sample shows one. It changes the template structure, not just its content |
-
-> **These two are worth a phone call rather than an email.** Everything else on this page can wait a week without costing you anything; these two are the critical path.
-
-### 2.2 Blocking — the quotation builder
-
-| # | Question | Why it matters |
-|---|---|---|
-| **B3** | **Discount — amount or percentage?** Both samples show `-` | Line arithmetic. Decides whether `discount_type` is needed at all ([`02-data-model.md`](02-data-model.md) §14) |
-| **B5** | **The current quotation counter value** | The sequence must continue from VCS's existing numbering, in the high 69000s. Restarting from 1 would collide with real documents already sent ([ADR-0031](decisions/0031-quotation-template-and-numbering.md)) |
-| **B6** | **Terms per quotation, or per line?** | Header-level is assumed and untested. A quotation with three origins and three lead times has never been seen |
-| **B7** | **Do progress and status interact?** Does status become Won automatically at 90/100, or is it set by hand? | Two fields kept in agreement manually **will** drift. Decide the rule now or inherit the drift ([ADR-0028](decisions/0028-progress-and-status-are-independent.md)) |
-
-### 2.3 Decide during the build — do not wait
-
-| # | Question | Default if unanswered |
-|---|---|---|
-| **B4** | Revision numbering — suffix or new number? | Suffix (`QUO69054-R2`) — recommended |
-| **B8** | Progress labels for 40 / 60 / 80 | Display only, no schema impact |
-| **B9** | Lost reason codes | Picklist seed data, editable by the client later |
-| **B10** | What triggers "repeat ordering established" (100)? | The system cannot detect it — someone decides by hand |
-| **B11** | Does a quotation ever mix two cost currencies? | Header-level FX rate assumes not ([ADR-0040](decisions/0040-fx-rate-at-quotation-level.md)). Watch for it |
+| **B1** | Multi-line quotation sample | ⏳ **still wanted** — validates row spacing and page breaks against reality |
+| **B2** | Is there a page 2? | ✅ **Yes — standard terms & conditions move to page 2.** Wording is company-level (**T1**: get the text from VCS) |
+| **B3** | Discount format | ✅ **Either** — enter amount or percent, the system derives and displays the other. `discount_type` records which was entered |
+| **B4** | Revision numbering | ✅ Suffix — `QUO69054-R2` |
+| **B5** | Current counter value | ⏳ **still needed before launch.** Not year-based: the samples show one continuous no-reset sequence customers recognise; the seed is just the last number VCS used (reasoning in ADR-0046) |
+| **B6** | Terms per quotation or line? | ✅ Per quotation (header). T&C per B2 |
+| **B7** | Progress/status interaction | ✅ **By hand** — no automatic Won |
+| **B8** | Progress labels | ✅ **None** — plain percentages in the UI |
+| **B9** | Lost reason codes | ✅ **No codes** — required free text stays |
+| **B10** | What triggers 100 (repeat established)? | ✅ Manual — Won and 100 are both human judgements |
+| **B11** | Mixed cost currencies? | ✅ Never — header-level FX rate stands |
 
 ### 2.4 Before launch, not before build
 

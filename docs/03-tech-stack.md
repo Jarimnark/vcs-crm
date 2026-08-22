@@ -454,7 +454,8 @@ System packages in its container: `libthai0 libthai-dev libpango-1.0-0 libpangof
 | **P1** | **Run the PDF prototype** ([§3.3](#33-prototype-before-committing)) | Still the first task |
 | **P2** | **Choose the PDF service host** — Cloud Run / Fly.io / Render free tier. **Cannot be Vercel** — WeasyPrint needs Pango, Cairo and libthai as system libraries ([ADR-0043](decisions/0043-prototype-environment.md)) | Affects cold start and the deploy path |
 | **B1** | A multi-line quotation sample | Cannot validate page breaks without it |
-| **B3** | Discount format — amount or percent | Line arithmetic |
+| ~~B3~~ | ✅ Resolved — dual entry, amount ⇄ percent ([ADR-0046](decisions/0046-client-answers-quotation-and-project-model.md)) | Builder derives the counterpart on entry |
+| **T1** | Standard T&C wording for the quotation's page 2 ([ADR-0046](decisions/0046-client-answers-quotation-and-project-model.md) B2) | Template's conditional final page renders when set |
 | ~~N1~~ | ✅ Resolved — responsive web, desktop-first ([ADR-0038](decisions/0038-responsive-web-desktop-first.md)) | Responsive from the first screen, not retrofitted |
 | N5 | Due-date reminders — in-app or email | Whether a second cron entry and email templates are needed |
 | N10 | Broader audit logging | `created_by`/`updated_by` is the current floor |

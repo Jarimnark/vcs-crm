@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Purpose** | Running state of the implementation: what exists, how it diverges from the spec, what is blocked, what happens next. Updated every working session. |
-| **Updated** | 2026-08-22 |
-| **Status** | ⏸ **Awaiting KK review of the plan below. No code changes until approved.** |
+| **Updated** | 2026-08-22 (evening — answers received) |
+| **Status** | ✅ **Plan approved (K1–K8) and B-questions answered — [ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md). Phases A → B → C cleared to start.** Outstanding from client: **B1** (multi-line sample), **B5** (current counter value), **T1** (T&C wording), **K4** (locate 02/04 docs). |
 | **Spec sources** | `user-story/` (client, authoritative) → `docs/00,01,03,05` → ADRs |
 
 ---
@@ -134,29 +134,32 @@ Severity: ❌ wrong (contradicts spec) · ⚠️ missing (spec field absent) · 
 
 ## 4. Blockers — split by who unblocks them
 
-### 4.1 Client answers (KK relays; unchanged from docs/05)
-| # | Question | Blocks |
+### 4.1 Client answers — ✅ ANSWERED 2026-08-22 ([ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md))
+| # | Answer | Consequence |
 |---|---|---|
-| **B1** | Multi-line quotation sample (3+ lines) | Template validation — *most valuable single input* |
-| **B2** | Is there a page 2 (bank details / T&C)? | Template structure |
-| **B3** | Discount: amount or %? (both modelled, neither confirmed) | Builder line arithmetic UI |
-| **B5** | Current quotation counter value (high 69000s) | Seeding before launch (placeholder 69000 in seed now) |
-| **B6** | Terms per quotation or per line? | Builder + template |
-| **B7** | Does status auto-become Won at 90/100, or by hand? | Flow F behaviour |
-| **B10** | What triggers "repeat ordering established" (100)? | Progress semantics for consumables |
-| B4/B8/B9/B11 | Revision suffix (default: `-R2`) · labels 40/60/80 · lost reasons · mixed cost currencies | Have defaults, proceed unless client objects |
+| **B1** | ⏳ still outstanding | Multi-line sample — validates row spacing / page breaks; does not block build |
+| **B2** | ✅ **Page 2 exists: standard T&C move there** | Template gains a conditional final T&C page; wording is company-level → **new item T1: get the T&C text from VCS** |
+| **B3** | ✅ **Enter either amount or %; system derives the other** | Builder shows both, `discount_type` records which was entered; printed column shows amount, `-` when none |
+| **B4** | ✅ Suffix `-R2` | Already implemented |
+| **B5** | ⏳ **still needed: the current counter number.** KK asked why not year-based — see ADR-0046: the client's own samples (QUO69041/69054) are one continuous no-reset sequence customers recognise; the seed is just "the last number VCS used". Placeholder 69000 stays until the real value arrives — **blocks launch, not build** |
+| **B6** | ✅ Terms per quotation (header) | Confirmed; per-quotation terms in the terms block, standard T&C on the final page |
+| **B7** | ✅ Status set **by hand** | No auto-Won; UI keeps the two controls fully independent |
+| **B8** | ✅ **No progress labels** | UI shows plain percentages; drop the label ladder |
+| **B9** | ✅ **No lost-reason codes** | Free text stays (required on Lost); remove the picklist kind |
+| **B10** | ✅ 100 (repeat established) set **manually** | System prompts interval at Won but never moves progress |
+| **B11** | ✅ Never mixed | Header-level FX stands as designed |
 
-### 4.2 KK decisions needed NOW (before schema fix — this is the review being requested)
-| # | Decision | Recommendation |
+### 4.2 KK decisions — ✅ ALL APPROVED 2026-08-22
+| # | Decision | Outcome |
 |---|---|---|
-| **K1** | Fix Account to **multi-select types** with spec values (migration; current data trivial) | Yes — spec is explicit |
-| **K2** | Adopt full spec fields for Project / Meeting+Attendees / Task status / Document / Person / Order / Expense (§2 tables) | Yes, in one migration pass |
-| **K3** | Rebuild reorder loop per spec: per-project interval, prompt at Won, complete-one-schedules-next, order resets clock, pause flag; **drop the hard-coded 90-day cron logic** (cron remains the scheduler tick) | Yes |
-| **K4** | Restore `docs/02-data-model.md` + `04-infrastructure.md` if KK has them; else write 02 fresh from handoff Part B and make it canonical | KK to check |
-| **K5** | User role values → `sales_engineer / sales_manager / ceo / finance` | Yes |
-| **K6** | Build the quotation **builder mechanics now** with defaults (B4 suffix, both discount shapes) so only the template/arithmetic details wait on B3/B5/B6? Or hold all builder work until answers arrive | Build now with defaults — flag on screen as unconfirmed |
-| **K7** | F1–F8 flow defaults (docs/01 §12) | Accept suggested defaults |
-| **K8** | N2 visibility (all see all?) · N3 hours account-level · N4 task assignment | Defaults: all-see-all, account-level, assign-to-anyone — confirm |
+| **K1** | Account → **multi-select types** with spec values | ✅ approved |
+| **K2** | Full spec-field alignment (Project / Meeting+Attendees / Task status / Document / Person / Order / Expense) | ✅ approved |
+| **K3** | Reorder loop per spec; drop hard-coded 90-day logic | ✅ approved |
+| **K4** | Locate `docs/02-data-model.md` + `04-infrastructure.md` | ⏳ **KK checking.** "Restore" means: those two files are referenced by the README/docs but were never committed to this repo — if copies exist wherever the docs were written, add them back. If none exist, 02 gets rewritten from the confirmed schema and becomes canonical |
+| **K5** | Roles → `sales_engineer / sales_manager / ceo / finance` | ✅ approved |
+| **K6** | Build the quotation builder now | ✅ approved — B3 answered, so discount UI is fully specified; numbering runs on the placeholder seed until B5's value arrives |
+| **K7** | F1–F8 defaults | ✅ approved |
+| **K8** | N2 all-see-all · N3 account-level hours · N4 assign-to-anyone | ✅ confirmed |
 
 ### 4.3 Nothing blocks (build while waiting)
 Schema alignment (after K1–K5 sign-off) · My Tasks dashboard · orders UI · documents UI · meeting full form + attendees · person view · account-360 completion · search · reports that don't need margin storage.
@@ -165,7 +168,7 @@ Schema alignment (after K1–K5 sign-off) · My Tasks dashboard · orders UI · 
 
 ## 5. Proposed plan (no work starts until KK approves)
 
-**Phase A — Schema alignment** *(after K1–K5)*: one migration implementing every §2 fix. Update DAL/DTOs/seeds/tests. No screen work. ~Small-medium.
+**Phase A — Schema alignment** *(approved)*: one migration implementing every §2 fix, **plus the ADR-0046 deltas**: drop `lost_reason` picklist kind, add company T&C field, keep `discount_type`/`discount_value` (dual-entry UI derives the counterpart). Update DAL/DTOs/seeds/tests. No screen work. ~Small-medium.
 
 **Phase B — Spec-correct core flows** *(needs nothing from client)*:
 1. Reorder loop per spec (K3) — interval on project, Won prompt, task-chain, pause; orders UI (log PO, void) resetting the clock.
@@ -174,7 +177,7 @@ Schema alignment (after K1–K5 sign-off) · My Tasks dashboard · orders UI · 
 4. Documents: upload UI per project, types, version; wire the existing `/api/upload`.
 5. Account 360 + Person view; inline account creation in project form.
 
-**Phase C — Quotation builder** *(mechanics now if K6=yes; arithmetic/template details land when B3/B5/B6 arrive)*: line CRUD + components + image, autocomplete from prior lines, live margin (client-side decimal.js, server authoritative), FX prompt, issue flow (number, snapshot, lock, **auto-file PDF as Document**, progress-50 prompt), revision flow.
+**Phase C — Quotation builder** *(approved, fully unblocked by ADR-0046 except B1 cosmetics)*: line CRUD + components + image, dual-entry discount (amount ⇄ %), autocomplete from prior lines, live margin (client-side decimal.js, server authoritative), FX prompt, issue flow (number, snapshot, lock, **auto-file PDF as Document**, progress-50 prompt), revision flow (`-R2`), template: T&C final page rendered when company T&C text is set (T1), progress shown as plain % (B8).
 
 **Phase D — Reports & polish**: the six fixed reports (needs stored total_cost/margin from Phase A), global search, quick create, CSV export.
 
@@ -189,3 +192,4 @@ Suggested order: **A → B1 → C (mechanics) → B2–B5 → C (finish on clien
 | 2026-08-15 | Scaffold: app skeleton, guardrails, PDF service (verified vs 10-item checklist), Docker, CI, ADR-0045. Schema reconstructed from ADRs — **source of most §2 gaps** |
 | 2026-08-22 | Contact creation + basic meetings module added. KK moved local Postgres to port 8888, seed reads `local.env` |
 | 2026-08-22 | **This review.** Full re-read of user-story + design docs; gap analysis §2–3; plan §5. Waiting on K1–K8 |
+| 2026-08-22 | **Answers received.** B2–B4, B6–B11 answered; K1–K3, K5–K8 approved → [ADR-0046](docs/decisions/0046-client-answers-quotation-and-project-model.md). Docs updated (00, 05, README, this file). Still open: B1, B5 value, T1 T&C wording, K4 file check. Next session starts Phase A |

@@ -3,14 +3,14 @@
 // COALESCE(quoted_value, expected_amount) × progress ÷ 100 over open
 // projects. Actuals read from Orders (ADR-0030) — never conflated.
 import { requireSessionOrRedirect } from '@/lib/session'
-import { listProjects, PROGRESS_STEPS } from '@/lib/data/projects'
+import { listAllProjects, PROGRESS_STEPS } from '@/lib/data/projects'
 import { Decimal, toDecimal, formatMoney } from '@/lib/money'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ReportsPage() {
   await requireSessionOrRedirect()
-  const projects = await listProjects()
+  const projects = await listAllProjects()
 
   const byStep = new Map<number, { count: number; value: Decimal; weighted: Decimal }>()
   for (const p of projects) {

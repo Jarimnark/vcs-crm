@@ -6,9 +6,10 @@
 // Rule: a row is visible to incurred_by and to sales_manager / ceo roles.
 // Out of scope → "not found", never "forbidden" — don't confirm it exists.
 import 'server-only'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { expenses, type ExpenseCategory } from '@/db/schema'
+import { likePattern, offsetFor, PAGE_SIZE, paged, type Paged } from '@/lib/list'
 import { canSeeAllExpenses, type AppSession } from '@/lib/session'
 
 export interface ExpenseDto {
@@ -45,13 +46,33 @@ function scopeFor(session: AppSession) {
   return canSeeAllExpenses(session) ? undefined : eq(expenses.incurredByUserId, session.userId)
 }
 
-export async function listExpenses(session: AppSession): Promise<ExpenseDto[]> {
+export interface ExpenseFilters {
+  q?: string
+  category?: ExpenseCategory
+  page?: number
+}
+
+export async function listExpenses(
+  session: AppSession,
+  f: ExpenseFilters = {},
+): Promise<Paged<ExpenseDto>> {
+  const page = f.page ?? 1
+  const conditions: SQL[] = []
+  const scope = scopeFor(session)
+  if (scope) conditions.push(scope)
+  if (f.q) conditions.push(ilike(expenses.note, likePattern(f.q)))
+  if (f.category) conditions.push(eq(expenses.category, f.category))
+  const where = conditions.length ? and(...conditions) : undefined
+
   const rows = await db
     .select()
     .from(expenses)
-    .where(scopeFor(session))
+    .where(where)
     .orderBy(desc(expenses.expenseDate), desc(expenses.id))
-  return rows.map(toDto)
+    .limit(PAGE_SIZE)
+    .offset(offsetFor(page))
+  const total = await db.select({ n: count() }).from(expenses).where(where)
+  return paged(rows.map(toDto), total[0].n, page)
 }
 
 export async function getExpense(session: AppSession, id: number): Promise<ExpenseDto | null> {
@@ -106,15 +127,22 @@ export async function createExpense(session: AppSession, input: NewExpense): Pro
   return toDto(rows[0])
 }
 
-/** Update is scoped to the owner in the query itself — the boundary (G1). */
-export async function updateExpenseNote(
+/** Update is scoped to the OWNER in the query itself — the boundary (G1).
+ * Managers may read others' expenses but never edit them. */
+export async function updateExpense(
   session: AppSession,
   expenseId: number,
-  note: string,
+  input: Pick<NewExpense, 'expenseDate' | 'category' | 'amount' | 'note'>,
 ): Promise<ExpenseDto | null> {
   const rows = await db
     .update(expenses)
-    .set({ note, updatedAt: new Date() })
+    .set({
+      expenseDate: input.expenseDate,
+      category: input.category,
+      amount: input.amount,
+      note: input.note ?? null,
+      updatedAt: new Date(),
+    })
     .where(and(eq(expenses.id, expenseId), eq(expenses.incurredByUserId, session.userId)))
     .returning()
   return rows[0] ? toDto(rows[0]) : null

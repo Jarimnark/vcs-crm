@@ -11,11 +11,13 @@ for (const file of ['local.env', '.env']) {
   }
 }
 
-// No silent fallback: guessing a port has already sent migrations at the
-// wrong Postgres twice. Fail loudly instead.
+// No silent fallback to a guessed port — that has already sent migrations at
+// the wrong Postgres twice. `generate` needs no database, so warn rather
+// than throw; `migrate` against the placeholder fails with a hostname that
+// says exactly what to fix.
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    'DATABASE_URL is not set. Create local.env (or .env) in the repo root with e.g.\n' +
+  console.warn(
+    '⚠ DATABASE_URL is not set. Create local.env (or .env) in the repo root with e.g.\n' +
       '  DATABASE_URL=postgres://vcs:vcs@localhost:8888/vcs_crm\n' +
       '(8888 is the port docker-compose.yml publishes Postgres on.)',
   )
@@ -26,6 +28,6 @@ export default defineConfig({
   out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: process.env.DATABASE_URL ?? 'postgres://SET-DATABASE_URL-IN-local.env:1/invalid',
   },
 })

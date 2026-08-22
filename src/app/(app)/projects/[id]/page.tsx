@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireSessionOrRedirect } from '@/lib/session'
-import { getProject, PROGRESS_STEPS } from '@/lib/data/projects'
+import { getProject, progressDefinition, PROGRESS_STEPS } from '@/lib/data/projects'
 import { listQuotationsForProject } from '@/lib/data/quotations'
 import { listOrdersForProject, projectActualRevenue } from '@/lib/data/orders'
 import { formatMoney } from '@/lib/money'
+import { StatusForm } from './status-form'
 import {
   createOrderAction,
   setFollowupAction,
@@ -31,7 +32,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <h1>{project.name}</h1>
+      <div className="toolbar">
+        <h1>{project.name}</h1>
+        <Link className="button" href={`/projects/${project.id}/edit`}>
+          Edit
+        </Link>
+      </div>
       <div className="card">
         <p>
           <Link href={`/accounts/${project.accountId}`}>{project.accountName}</Link> ·{' '}
@@ -60,51 +66,38 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
       <h2>Progress — {project.progress}%</h2>
       <div className="card">
-        {/* Fixed steps, plain percentages (ADR-0046 B8); backwards moves are
-            normal and logged. Progress freezes on loss. */}
-        <form action={setProgressAction} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {/* Fixed steps with their definitions (review round 1); backwards
+            moves are normal and logged. Progress freezes on loss. */}
+        <form action={setProgressAction} className="progress-steps">
           <input type="hidden" name="projectId" value={project.id} />
           {PROGRESS_STEPS.map((step) => (
-            <button
-              key={step}
-              name="progress"
-              value={step}
-              className={step === project.progress ? undefined : 'quiet'}
-              disabled={project.status === 'lost'}
-            >
-              {step}
-            </button>
+            <div key={step} className={`step-row${step === project.progress ? ' current' : ''}`}>
+              <button
+                name="progress"
+                value={step}
+                className={step === project.progress ? undefined : 'quiet'}
+                disabled={project.status === 'lost'}
+              >
+                {step}%
+              </button>
+              <span className="step-def">{progressDefinition(step, project.type)}</span>
+            </div>
           ))}
         </form>
       </div>
 
       <h2>Status</h2>
       <div className="card">
-        {/* Set by hand — never automatic (ADR-0046 B7/B10) */}
-        <form className="stack" action={setStatusAction}>
-          <input type="hidden" name="projectId" value={project.id} />
-          <label>
-            Status
-            <select name="status" defaultValue={project.status}>
-              <option value="open">Open</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
-            </select>
-          </label>
-          <label>
-            Lost reason (required when lost — free text)
-            <input name="lostReason" defaultValue={project.lostReason ?? ''} maxLength={255} />
-          </label>
-          <label>
-            Competitor (if known)
-            <input name="competitor" defaultValue={project.competitor ?? ''} maxLength={255} />
-          </label>
-          <label>
-            Note
-            <input name="lostNote" maxLength={1000} />
-          </label>
-          <button>Update status</button>
-        </form>
+        {/* Set by hand — never automatic (ADR-0046 B7/B10). Won asks for the
+            real amount and records it as the first Order (ADR-0030). */}
+        <StatusForm
+          action={setStatusAction}
+          projectId={project.id}
+          currentStatus={project.status}
+          projectType={project.type}
+          lostReason={project.lostReason}
+          competitor={project.competitor}
+        />
       </div>
 
       {project.type === 'consumable' && (

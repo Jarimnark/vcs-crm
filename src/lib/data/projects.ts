@@ -3,7 +3,7 @@
 // project_history, including backwards moves. Progress freezes on loss.
 // Progress displays as plain percentages — no labels (ADR-0046 B8).
 import 'server-only'
-import { desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, or, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   accounts,
@@ -13,9 +13,40 @@ import {
   type ProjectStatus,
   type ProjectType,
 } from '@/db/schema'
+import { likePattern, offsetFor, PAGE_SIZE, paged, type Paged } from '@/lib/list'
 import type { AppSession } from '@/lib/session'
 
 export { PROGRESS_STEPS }
+
+// The ladder definitions (user-story §2.2) — shown beside the stepper
+// (review round 1, supersedes the earlier "no labels" answer). 90/100 differ
+// by type (§2.3). 40/60/80 wording is inferred, not client-confirmed (B8).
+export function progressDefinition(step: number, type: ProjectType): string {
+  switch (step) {
+    case 10:
+      return 'Lead received'
+    case 20:
+      return 'Inquiry captured'
+    case 30:
+      return 'Spec review — supplier request sent'
+    case 40:
+      return 'Proposal / spec confirmed'
+    case 50:
+      return 'Quoted — quotation issued to client'
+    case 60:
+      return 'Client reviewing'
+    case 70:
+      return 'Negotiation'
+    case 80:
+      return 'Final terms agreed — PO pending'
+    case 90:
+      return type === 'consumable' ? 'Won — first order confirmed' : 'PO imminent'
+    case 100:
+      return type === 'consumable' ? 'Repeat ordering established' : 'PO received'
+    default:
+      return ''
+  }
+}
 
 export interface ProjectDto {
   id: number
@@ -57,7 +88,42 @@ const projectSelection = {
   parentProjectId: projects.parentProjectId,
 }
 
-export async function listProjects(): Promise<ProjectDto[]> {
+export interface ProjectFilters {
+  q?: string
+  status?: ProjectStatus
+  type?: ProjectType
+  page?: number
+}
+
+export async function listProjects(f: ProjectFilters = {}): Promise<Paged<ProjectDto>> {
+  const page = f.page ?? 1
+  const conditions: SQL[] = []
+  if (f.q) {
+    const p = likePattern(f.q)
+    conditions.push(or(ilike(projects.name, p), ilike(accounts.name, p))!)
+  }
+  if (f.status) conditions.push(eq(projects.status, f.status))
+  if (f.type) conditions.push(eq(projects.type, f.type))
+  const where = conditions.length ? and(...conditions) : undefined
+
+  const rows = await db
+    .select(projectSelection)
+    .from(projects)
+    .innerJoin(accounts, eq(projects.accountId, accounts.id))
+    .where(where)
+    .orderBy(desc(projects.updatedAt))
+    .limit(PAGE_SIZE)
+    .offset(offsetFor(page))
+  const total = await db
+    .select({ n: count() })
+    .from(projects)
+    .innerJoin(accounts, eq(projects.accountId, accounts.id))
+    .where(where)
+  return paged(rows, total[0].n, page)
+}
+
+/** Unpaged list for reports. */
+export async function listAllProjects(): Promise<ProjectDto[]> {
   return db
     .select(projectSelection)
     .from(projects)
@@ -105,6 +171,33 @@ export async function createProject(
     })
     .returning({ id: projects.id })
   return rows[0].id
+}
+
+export async function updateProject(
+  session: AppSession,
+  projectId: number,
+  input: {
+    name: string
+    primaryPersonId?: number | null
+    expectedAmount?: string | null
+    currency?: string
+    expectedCloseDate?: string | null
+  },
+): Promise<boolean> {
+  const rows = await db
+    .update(projects)
+    .set({
+      name: input.name,
+      primaryPersonId: input.primaryPersonId ?? null,
+      expectedAmount: input.expectedAmount ?? null,
+      currency: input.currency ?? 'THB',
+      expectedCloseDate: input.expectedCloseDate ?? null,
+      updatedById: session.userId,
+      updatedAt: new Date(),
+    })
+    .where(eq(projects.id, projectId))
+    .returning({ id: projects.id })
+  return rows.length > 0
 }
 
 /** Set progress, writing history. Rejected when the project is lost. */

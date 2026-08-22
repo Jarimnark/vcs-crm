@@ -196,6 +196,9 @@ export const accounts = pgTable(
     types: text('types').array().$type<AccountType[]>().notNull().default(sql`ARRAY['client']::text[]`),
     taxId: varchar('tax_id', { length: 20 }),
     taxBranch: varchar('tax_branch', { length: 100 }), // Thai tax requirement, e.g. "Head Office"
+    // Company switchboard — the number an engineer dials for operations
+    // (review round 1; not in 02, added on KK's request).
+    phone: varchar('phone', { length: 50 }),
     address: text('address'),
     industry: varchar('industry', { length: 100 }),
     countryId: bigint('country_id', { mode: 'number' }).references(() => picklists.id),

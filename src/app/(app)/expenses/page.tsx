@@ -1,16 +1,35 @@
 // Expenses — minimal capture (ADR-0039), restricted visibility (ADR-0017):
 // a user sees their own; sales_manager/ceo see all. Enforced in
 // lib/data/expenses.ts (the DAL), not in this page.
+import Link from 'next/link'
 import { requireSessionOrRedirect, canSeeAllExpenses } from '@/lib/session'
 import { listExpenses } from '@/lib/data/expenses'
 import { formatMoney } from '@/lib/money'
+import { parsePage } from '@/lib/list'
+import { Pagination, SearchBar } from '@/components/list-controls'
 import { createExpenseAction } from './actions'
+import type { ExpenseCategory } from '@/db/schema'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ExpensesPage() {
+const CATEGORIES: ExpenseCategory[] = ['travel', 'fuel', 'accommodation', 'entertainment', 'other']
+
+export default async function ExpensesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; category?: string; page?: string }>
+}) {
   const session = await requireSessionOrRedirect()
-  const expenses = await listExpenses(session)
+  const sp = await searchParams
+  const q = sp.q?.trim() ?? ''
+  const category = CATEGORIES.includes(sp.category as ExpenseCategory)
+    ? (sp.category as ExpenseCategory)
+    : undefined
+  const result = await listExpenses(session, {
+    q: q || undefined,
+    category,
+    page: parsePage(sp.page),
+  })
 
   return (
     <>
@@ -18,6 +37,18 @@ export default async function ExpensesPage() {
         Expenses{' '}
         {canSeeAllExpenses(session) && <span className="badge">manager view — all users</span>}
       </h1>
+
+      <SearchBar action="/expenses" q={q} placeholder="Search note…">
+        <select name="category" defaultValue={category ?? ''}>
+          <option value="">All categories</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </SearchBar>
+
       <table className="list">
         <thead>
           <tr>
@@ -25,17 +56,18 @@ export default async function ExpensesPage() {
             <th>Category</th>
             <th>Note</th>
             <th className="num">Amount</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {expenses.length === 0 && (
+          {result.rows.length === 0 && (
             <tr>
-              <td colSpan={4} className="muted">
+              <td colSpan={5} className="muted">
                 No expenses recorded.
               </td>
             </tr>
           )}
-          {expenses.map((e) => (
+          {result.rows.map((e) => (
             <tr key={e.id}>
               <td>{e.expenseDate}</td>
               <td>{e.category}</td>
@@ -43,10 +75,20 @@ export default async function ExpensesPage() {
               <td className="num">
                 {formatMoney(e.amount)} {e.currency}
               </td>
+              <td>
+                {e.incurredByUserId === session.userId && (
+                  <Link href={`/expenses/${e.id}/edit`}>Edit</Link>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      <Pagination
+        paged={result}
+        basePath="/expenses"
+        params={{ ...(q ? { q } : {}), ...(category ? { category } : {}) }}
+      />
 
       <h2>Record expense</h2>
       <div className="card">
@@ -59,11 +101,11 @@ export default async function ExpensesPage() {
           <label>
             Category
             <select name="category" defaultValue="travel">
-              <option value="travel">Travel</option>
-              <option value="fuel">Fuel</option>
-              <option value="accommodation">Accommodation</option>
-              <option value="entertainment">Entertainment</option>
-              <option value="other">Other</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </label>
           <label>

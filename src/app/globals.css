@@ -105,6 +105,67 @@ button.quiet { background: transparent; color: var(--ink); border-color: var(--l
 .error { color: var(--accent); font-size: 0.9rem; }
 .muted { color: var(--muted); }
 
+/* Search / filter bar above every list */
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.filter-bar input[type='search'] { min-width: 220px; }
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+/* Checkbox chips — account types etc. (nicer than a bare checkbox list) */
+.chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.chips label {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.9rem;
+  user-select: none;
+}
+.chips input { position: absolute; opacity: 0; pointer-events: none; }
+.chips label:has(input:checked) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+/* Progress stepper with definitions */
+.progress-steps { display: grid; gap: 0.25rem; }
+.progress-steps .step-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.progress-steps button { min-width: 3.2rem; }
+.progress-steps .step-def { font-size: 0.85rem; color: var(--muted); }
+.progress-steps .step-row.current .step-def { color: var(--ink); font-weight: 600; }
+
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; flex-wrap: wrap; }
+.toolbar h1 { margin: 0; }
+a.button {
+  display: inline-block;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  background: var(--ink);
+  color: #fff;
+  text-decoration: none;
+}
+
 .signin-wrap {
   min-height: 100vh;
   display: grid;

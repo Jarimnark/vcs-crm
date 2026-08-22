@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { requireSessionOrRedirect } from '@/lib/session'
 import { listAccounts } from '@/lib/data/accounts'
-import { createAccountAction } from './actions'
+import { parsePage } from '@/lib/list'
+import { Pagination, SearchBar } from '@/components/list-controls'
+import type { AccountStatus, AccountType } from '@/db/schema'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,32 +14,71 @@ const TYPE_LABELS: Record<string, string> = {
   service_provider: 'Service provider',
   logistics: 'Logistics',
 }
+const STATUSES: AccountStatus[] = ['active', 'prospect', 'inactive']
 
-export default async function AccountsPage() {
+export default async function AccountsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; type?: string; status?: string; page?: string }>
+}) {
   await requireSessionOrRedirect()
-  const accounts = await listAccounts()
+  const sp = await searchParams
+  const q = sp.q?.trim() ?? ''
+  const type = Object.keys(TYPE_LABELS).includes(sp.type ?? '')
+    ? (sp.type as AccountType)
+    : undefined
+  const status = STATUSES.includes(sp.status as AccountStatus)
+    ? (sp.status as AccountStatus)
+    : undefined
+  const result = await listAccounts({ q: q || undefined, type, status, page: parsePage(sp.page) })
 
   return (
     <>
-      <h1>Accounts</h1>
+      <div className="toolbar">
+        <h1>Accounts</h1>
+        <Link className="button" href="/accounts/new">
+          + New account
+        </Link>
+      </div>
+
+      <SearchBar action="/accounts" q={q} placeholder="Search name or tax ID…">
+        <select name="type" defaultValue={type ?? ''}>
+          <option value="">All types</option>
+          {Object.entries(TYPE_LABELS).map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <select name="status" defaultValue={status ?? ''}>
+          <option value="">All statuses</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </SearchBar>
+
       <table className="list">
         <thead>
           <tr>
             <th>Name</th>
             <th>Types</th>
+            <th>Phone</th>
             <th>Status</th>
             <th>Tax ID</th>
           </tr>
         </thead>
         <tbody>
-          {accounts.length === 0 && (
+          {result.rows.length === 0 && (
             <tr>
-              <td colSpan={4} className="muted">
-                No accounts yet.
+              <td colSpan={5} className="muted">
+                No accounts found.
               </td>
             </tr>
           )}
-          {accounts.map((a) => (
+          {result.rows.map((a) => (
             <tr key={a.id}>
               <td>
                 <Link href={`/accounts/${a.id}`}>{a.name}</Link>
@@ -49,6 +90,7 @@ export default async function AccountsPage() {
                   </span>
                 ))}
               </td>
+              <td>{a.phone}</td>
               <td>{a.status}</td>
               <td>
                 {a.taxId}
@@ -58,47 +100,15 @@ export default async function AccountsPage() {
           ))}
         </tbody>
       </table>
-
-      <h2>New account</h2>
-      <div className="card">
-        <form className="stack" action={createAccountAction}>
-          <label>
-            Name
-            <input name="name" required maxLength={255} />
-          </label>
-          <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
-            <span className="muted" style={{ fontSize: '0.85rem' }}>
-              Types — an account plays as many roles as it plays
-            </span>
-            {Object.entries(TYPE_LABELS).map(([value, label]) => (
-              <label
-                key={value}
-                style={{ flexDirection: 'row' as const, alignItems: 'center', gap: '0.5rem' }}
-              >
-                <input type="checkbox" name="types" value={value} defaultChecked={value === 'client'} />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-          <label>
-            Industry
-            <input name="industry" maxLength={100} />
-          </label>
-          <label>
-            Address
-            <textarea name="address" rows={3} />
-          </label>
-          <label>
-            Tax ID
-            <input name="taxId" maxLength={20} />
-          </label>
-          <label>
-            Branch designation (e.g. Head Office)
-            <input name="taxBranch" maxLength={100} />
-          </label>
-          <button>Create account</button>
-        </form>
-      </div>
+      <Pagination
+        paged={result}
+        basePath="/accounts"
+        params={{
+          ...(q ? { q } : {}),
+          ...(type ? { type } : {}),
+          ...(status ? { status } : {}),
+        }}
+      />
     </>
   )
 }
